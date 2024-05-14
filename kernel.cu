@@ -8,6 +8,7 @@
 #include <string>
 
 #define NUMBER_OF_CUSTOMERS 1000u // How many struct there are in the vector.
+
 #define MAX_USERNAME_LENGTH 20u
 #define MAX_BIO_LENGTH 20u
 
@@ -34,7 +35,6 @@ __device__ void gpu_strlen(const char* str, size_t& len) {
     }
 }
 
-
 __device__ void bitwise_hash_16(char* str, size_t& size, uint16_t& hash) {
     hash = str[0]; // Il primo valore è il primo carattere della stringa.
     for (uint16_t iter = 1; iter < size; iter++) {
@@ -44,7 +44,6 @@ __device__ void bitwise_hash_16(char* str, size_t& size, uint16_t& hash) {
     hash %= HASH_FUNCTION_SIZE; // Il digest deve essere all'interno dell'intervallo di output della funzione hash.
 }
 
-
 __global__ void processCustomers(strutturaCustomer* customers, uint64_t size , strutturaCustomer** res, float* overflowIndexes) {
     int idx = threadIdx.x + blockIdx.x * blockDim.x;
     uint16_t hash;
@@ -52,7 +51,6 @@ __global__ void processCustomers(strutturaCustomer* customers, uint64_t size , s
 
     // Ogni thread elabora un subset di elementi nell'array customers
     while (idx < size) {
-        __syncthreads();
         gpu_strlen(customers[idx].username, len);
         bitwise_hash_16(customers[idx].username, len, hash);
 
@@ -61,6 +59,7 @@ __global__ void processCustomers(strutturaCustomer* customers, uint64_t size , s
 
         idx += blockDim.x * gridDim.x;
     }
+    __syncthreads();
 }
 
 void cudaMemoryInfo(){
@@ -72,12 +71,11 @@ void cudaMemoryInfo(){
 
 int main() {
     cout << "prova partenza" << endl;
+    
     uint64_t i = 0, j = 0;
     string username = "";
-
     strutturaCustomer h_customers[NUMBER_OF_CUSTOMERS]; // Array delle strutture dati sulla CPU
     strutturaCustomer h_res[HASH_FUNCTION_SIZE][NUMBER_OF_CUSTOMERS];
-
     float h_overflowIndexes[HASH_FUNCTION_SIZE]; 
    
     // Inizializzazione dei dati dei clienti (esempio)
