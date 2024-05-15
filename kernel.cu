@@ -72,13 +72,18 @@ void cudaMemoryInfo(){
 int main() {
     cout << "Prova partenza del programma." << endl;
     
-    uint64_t i = 0;
+    uint64_t i = 0, j = 0;
     string username = "";
     strutturaCustomer* h_customers = new strutturaCustomer[NUMBER_OF_CUSTOMERS]; // Array delle strutture dati sulla CPU
     strutturaCustomer** h_res = = new strutturaCustomer*[HASH_FUNCTION_SIZE];
 
     for(i = 0; i < HASH_FUNCTION_SIZE ; i++){
-        h_res[i] = new strutturaCustomer[NUMBER_OF_CUSTOMERS]; 
+        h_res[i] = new strutturaCustomer[NUMBER_OF_CUSTOMERS];
+        for(j = 0 ; j < NUMBER_OF_CUSTOMERS ; j++){
+            h_res[i][j].username = new char[MAX_USERNAME_LENGTH];
+            h_res[i][j].number = 0
+            h_res[i][j].bio = new char[MAX_BIO_LENGTH];
+        } 
     }
 
     float* h_overflowIndexes = new float[HASH_FUNCTION_SIZE];
