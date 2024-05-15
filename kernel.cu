@@ -23,9 +23,9 @@
 using namespace std;
 
 struct strutturaCustomer {
-    char username[MAX_USERNAME_LENGTH]; // Identifier field (must be unique for each customer).
+    char* username; // Identifier field (must be unique for each customer).
     uint64_t number = 0; // Not unique and expected little field.
-    char bio[MAX_BIO_LENGTH]; // Not unique and expected big field.
+    char* bio;// Not unique and expected big field.
 };
 
 __device__ void gpu_strlen(const char* str, size_t& len) {
@@ -70,13 +70,18 @@ void cudaMemoryInfo(){
 
 
 int main() {
-    cout << "prova partenza" << endl;
+    cout << "Prova partenza del programma." << endl;
     
-    uint64_t i = 0, j = 0;
+    uint64_t i = 0;
     string username = "";
-    strutturaCustomer h_customers[NUMBER_OF_CUSTOMERS]; // Array delle strutture dati sulla CPU
-    strutturaCustomer h_res[HASH_FUNCTION_SIZE][NUMBER_OF_CUSTOMERS];
-    float h_overflowIndexes[HASH_FUNCTION_SIZE]; 
+    strutturaCustomer* h_customers = new strutturaCustomer[NUMBER_OF_CUSTOMERS]; // Array delle strutture dati sulla CPU
+    strutturaCustomer** h_res = = new strutturaCustomer*[HASH_FUNCTION_SIZE];
+
+    for(i = 0; i < HASH_FUNCTION_SIZE ; i++){
+        h_res[i] = new strutturaCustomer[NUMBER_OF_CUSTOMERS]; 
+    }
+
+    float* h_overflowIndexes = new float[HASH_FUNCTION_SIZE];
    
     // Inizializzazione dei dati dei clienti (esempio)
     for (i = 0; i < NUMBER_OF_CUSTOMERS; ++i) {
@@ -138,7 +143,6 @@ int main() {
     }
     */
    
-
     cout << "Inizio deallocazione" << endl;
 
     // DEALLOCAZIONE
@@ -150,6 +154,14 @@ int main() {
         cudaFree(d_res[i]);
     }
     cudaFree(d_res);
+
+     // Rilascio della memoria allocata
+    delete[] h_customers;
+    for (int i = 0; i < HASH_FUNCTION_SIZE; i++) {
+        delete[] h_res[i];
+    }
+    delete[] h_res;
+    delete[] h_overflowIndexes;
 
     return 0;
 }
