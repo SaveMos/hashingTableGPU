@@ -139,7 +139,7 @@ int main() {
     for(i = 0 ; i < HASH_FUNCTION_SIZE ; i++){
         for(j = 0 ; j < NUMBER_OF_CUSTOMERS ; j++){
             if(strlen(h_res[i][j].username) == 0){
-                continue;
+                break;
             }
             count++;
         }
