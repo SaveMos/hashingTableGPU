@@ -134,6 +134,23 @@ int main() {
         cudaMemcpy(h_res[i], row, NUMBER_OF_CUSTOMERS * sizeof(strutturaCustomer), cudaMemcpyDeviceToHost);
     }
 
+    uint64_t count = 0;
+
+    for(i = 0 ; i < HASH_FUNCTION_SIZE ; i++){
+        for(j = 0 ; j < NUMBER_OF_CUSTOMERS ; j++){
+            if(strlen(h_res[i][j].username) == 0){
+                continue;
+            }
+            count++;
+        }
+    }
+
+    if(count == NUMBER_OF_CUSTOMERS){
+        cout << "OK" << endl;
+    }else{
+        cout << "NOT OK" << endl;
+    }
+
     cout << "Inizio deallocazione" << endl;
 
     // DEALLOCAZIONE
