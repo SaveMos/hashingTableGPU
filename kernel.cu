@@ -1,4 +1,4 @@
-﻿// CUDA libraries
+// CUDA libraries
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 
@@ -9,10 +9,10 @@
 #include <string>
 
 // Data structure array configuration
-#define NUMBER_OF_CUSTOMERS 1000u // How many struct there are in the vector.
+#define NUMBER_OF_CUSTOMERS 1000000u // How many struct there are in the vector.
 
 // Parallelism configuration
-#define THREAD_NUMBER 10u // The number of threads you want to use.
+#define THREAD_NUMBER 1u // The number of threads you want to use.
 
 // Data structure configuration
 #define MAX_USERNAME_LENGTH 20u
@@ -33,29 +33,12 @@ using namespace std;
 // The target data structure.
 struct strutturaCustomer
 {
-    char *username;      // Identifier field (must be unique for each customer).
+    string username;     // Identifier field (must be unique for each customer).
     uint64_t number = 0; // Not unique and expected little field.
-    char *bio;           // Not unique and expected big field.
+    string bio;          // Not unique and expected big field.
 };
 
-#define MAX_SEMAPHORE_VALUE 1
-
-__device__ int mutexVector[HASH_FUNCTION_SIZE]; // Array di semafori
-
-__device__ void lock(int *semaphore)
-{
-    while (atomicCAS(semaphore, 0, 1) != 0);
-    __threadfence();  
-}
-
-__device__ void unlock(int *semaphore)
-{
-   __threadfence();  
-    atomicExch(semaphore, 0);
-}
-
-// GPU function to compute the lenght of a string.
-__device__ void gpu_strlen(const char *str, size_t &len)
+__device__ void gpu_strlen(char *str, size_t &len)
 {
     len = 0;
     while (str[len] != '\0')
@@ -65,7 +48,7 @@ __device__ void gpu_strlen(const char *str, size_t &len)
 }
 
 // GPU function for compute the 16-bit hash of a string.
-__device__ void bitwise_hash_16(const char *str, size_t size, uint16_t &hash)
+__device__ void bitwise_hash_16(char *str, size_t size, uint16_t &hash)
 {
     hash = str[0];
     for (size_t iter = 1; iter < size; iter++)
@@ -75,247 +58,119 @@ __device__ void bitwise_hash_16(const char *str, size_t size, uint16_t &hash)
     hash %= HASH_FUNCTION_SIZE; // Il digest deve essere all'interno dell'intervallo di output della funzione hash.
 }
 
-__global__ void processCustomers(strutturaCustomer *customers, uint64_t size, strutturaCustomer **res, int *overflowIndexes)
+__global__ void processCustomers(char **customers, uint64_t size, uint16_t *hashes)
 {
-    int idx = threadIdx.x + blockIdx.x * blockDim.x, index;
+    int idx = threadIdx.x + blockIdx.x * blockDim.x;
     size_t len = 0;
     uint16_t hash;
     // Ogni thread elabora un subset di elementi nell'array customers
     while (idx < size)
     {
-        gpu_strlen(customers[idx].username, len);
-        bitwise_hash_16(customers[idx].username, len, hash);
-
-        lock(&mutexVector[hash]);
-        res[hash][static_cast<int>(overflowIndexes[hash])] = customers[idx];
-        overflowIndexes[hash]++;
-        // printf("Username: %s | lenght: %u | Hash: %i | OI: %f\n" , customers[idx].username , len , hash, overflowIndexes[hash]);
-        unlock(&mutexVector[hash]);
-
+        gpu_strlen(customers[idx], len);
+        bitwise_hash_16(customers[idx], len, hash);
+        hashes[idx] = hash;
         idx += blockDim.x * gridDim.x;
     }
-
     __syncthreads();
-}
-
-void cudaMemoryInfo()
-{
-    size_t freeMem, totalMem;
-    cudaMemGetInfo(&freeMem, &totalMem);
-    std::cout << "Memoria libera sulla GPU: " << freeMem / (1024 * 1024) << "/" << totalMem / (1024 * 1024) << std::endl;
 }
 
 int main()
 {
     cout << "Prova partenza del programma." << endl;
 
-    uint64_t i = 0, j = 0, count = 0;
-    string username = "";                                                        // Temporary variable for the inizialization of the customers array.
-    strutturaCustomer *h_customers = new strutturaCustomer[NUMBER_OF_CUSTOMERS]; // Array delle strutture dati sulla CPU
-    strutturaCustomer **h_res = new strutturaCustomer *[HASH_FUNCTION_SIZE];
-    int *h_overflowIndexes = new int[HASH_FUNCTION_SIZE];
+    uint64_t i = 0, count = 0;
+    string username = "";                                      // Temporary variable for the inizialization of the customers array.
+    vector<strutturaCustomer> customers;                       // The list of the customers.
+    vector<vector<strutturaCustomer>> ret(HASH_FUNCTION_SIZE); // The final hashing table.
+    
+    uint16_t *hashes = new uint16_t[NUMBER_OF_CUSTOMERS];
+    char **h_customers = new char* [NUMBER_OF_CUSTOMERS];
 
-    // Allocazione della memoria per i puntatori dentro h_customers
-    for (i = 0; i < NUMBER_OF_CUSTOMERS; i++)
-    {
-        h_customers[i].username = new char[MAX_USERNAME_LENGTH];
-        h_customers[i].bio = new char[MAX_BIO_LENGTH];
-    }
-
+    strutturaCustomer str;
     // Inizializzazione dei dati dei clienti (esempio)
     for (i = 0; i < NUMBER_OF_CUSTOMERS; ++i)
     {
-        username = "user_" + to_string(i);
-        strcpy(h_customers[i].username, username.c_str());
-        h_customers[i].number = i;
-        username = "Bio for user_" + to_string(i);
-        strcpy(h_customers[i].bio, username.c_str());
+        str.username = "user_" + to_string(i);
+        str.number = i;
+        str.bio = "Bio for user_" + to_string(i);
+
+        h_customers[i] = new char[str.username.length()];
+        strcpy(h_customers[i], str.username.c_str());
+        customers.push_back(str);
+
+        hashes[i] = 0;
     }
 
-    // Allocazione della memoria per h_res e i suoi campi
-    for (i = 0; i < HASH_FUNCTION_SIZE; i++)
-    {
-        h_res[i] = new strutturaCustomer[NUMBER_OF_CUSTOMERS];
-        for (j = 0; j < NUMBER_OF_CUSTOMERS; j++)
-        {
-            h_res[i][j].username = new char[MAX_USERNAME_LENGTH];
-            h_res[i][j].bio = new char[MAX_BIO_LENGTH];
-        }
-    }
-
-    // Inizializzazione degli indici di overflow.
-    for (i = 0; i < HASH_FUNCTION_SIZE; i++)
-    {
-        h_overflowIndexes[i] = 0.0f;
-    }
-
+    cout << "strutture inizializzate" << endl;
     // Allocazione overflow indexes in GPU.
-    int *d_overflowIndexes;
-    cudaMalloc((void **)&d_overflowIndexes, HASH_FUNCTION_SIZE * sizeof(int));                                  // Allocazione della memoria sulla GPU per h_overflowIndexes
-    cudaMemcpy(d_overflowIndexes, h_overflowIndexes, HASH_FUNCTION_SIZE * sizeof(int), cudaMemcpyHostToDevice); // Copia dei dati dalla CPU alla GPU per h_overflowIndexes
+    uint16_t *d_hashes;
+    cudaMalloc((void **)&d_hashes, NUMBER_OF_CUSTOMERS * sizeof(uint16_t)); // Allocazione della memoria sulla GPU per h_overflowIndexes
+    //cudaMemcpy(d_hashes, hashes, NUMBER_OF_CUSTOMERS * sizeof(uint16_t), cudaMemcpyHostToDevice); // Copia dei dati dalla CPU alla GPU per h_overflowIndexes
 
+    cout << "hashes ok" << endl;
     // Allocazione customers in GPU.
-    strutturaCustomer *d_customers;
-    cudaMalloc((void **)&d_customers, NUMBER_OF_CUSTOMERS * sizeof(strutturaCustomer));                            // Allocazione della memoria sulla GPU per h_customers
-    cudaMemcpy(d_customers, h_customers, NUMBER_OF_CUSTOMERS * sizeof(strutturaCustomer), cudaMemcpyHostToDevice); // Copia dei dati dalla CPU alla GPU per h_customers
-
-    // Allocazione delle stringhe all'interno delle strutture dati
-    // Allocazione delle stringhe all'interno delle strutture dati
-    for (i = 0; i < NUMBER_OF_CUSTOMERS; ++i)
+    char **d_customers; // Creiamo la tabella di hash nella GPU
+    cudaMalloc((void **)&d_customers, NUMBER_OF_CUSTOMERS * sizeof(strutturaCustomer *));
+    size_t size_str;
+    for (i = 0; i < NUMBER_OF_CUSTOMERS; i++)
     {
-        // Allocazione della memoria per il nome utente sul device
+        size_str = customers[i].username.length();
         char *d_username;
-        cudaMalloc((void **)&d_username, MAX_USERNAME_LENGTH * sizeof(char));
+        cudaMalloc((void **)&d_username, size_str * sizeof(char));
         // Copia del nome utente dalla CPU alla GPU
-        cudaMemcpy(d_username, h_customers[i].username, MAX_USERNAME_LENGTH * sizeof(char), cudaMemcpyHostToDevice);
+        cudaMemcpy(d_username, h_customers[i], size_str * sizeof(char), cudaMemcpyHostToDevice);
         // Aggiornamento del puntatore del nome utente nella struttura dati sul device
-        cudaMemcpy(&(d_customers[i].username), &d_username, sizeof(char *), cudaMemcpyHostToDevice);
-
-        // Allocazione della memoria per la bio sul device
-        char *d_bio;
-        cudaMalloc((void **)&d_bio, MAX_BIO_LENGTH * sizeof(char));
-        // Copia della bio dalla CPU alla GPU
-        cudaMemcpy(d_bio, h_customers[i].bio, MAX_BIO_LENGTH * sizeof(char), cudaMemcpyHostToDevice);
-        // Aggiornamento del puntatore della bio nella struttura dati sul device
-        cudaMemcpy(&(d_customers[i].bio), &d_bio, sizeof(char *), cudaMemcpyHostToDevice);
+        cudaMemcpy(&(d_customers[i]), &d_username, sizeof(char *), cudaMemcpyHostToDevice);
     }
+    cout << "Inizio nucleo." << endl;
 
-    // Allocazione res in GPU.
-    strutturaCustomer **d_res; // Creiamo la tabella di hash nella GPU
-    cudaMalloc((void **)&d_res, HASH_FUNCTION_SIZE * sizeof(strutturaCustomer *));
+    processCustomers<<<NUMBER_OF_CUSTOMERS / THREAD_NUMBER, THREAD_NUMBER>>>(d_customers, NUMBER_OF_CUSTOMERS, d_hashes);
 
-    for (i = 0; i < HASH_FUNCTION_SIZE; i++)
-    {
-        strutturaCustomer *row;
-        cudaMalloc((void **)&row, NUMBER_OF_CUSTOMERS * sizeof(strutturaCustomer));
-        cudaMemcpy(d_res + i, &row, sizeof(strutturaCustomer *), cudaMemcpyHostToDevice); // Copia dei dati dalla CPU alla GPU per h_customers
-    }
-     cout << "Inizio nucleo" << endl;
-    processCustomers<<<NUMBER_OF_CUSTOMERS / THREAD_NUMBER, THREAD_NUMBER>>>(d_customers, NUMBER_OF_CUSTOMERS, d_res, d_overflowIndexes);
-
-    cout << "fine nucleo" << endl;
-    // processCustomers<<<1, 1>>>(d_customers, NUMBER_OF_CUSTOMERS, d_res, d_overflowIndexes);
+    cout << "fine nucleo." << endl;
 
     cudaDeviceSynchronize(); // Sincronizza la GPU per assicurarsi che il kernel sia stato completato.
 
-    cout << "Inizio copia dei risultati" << endl;
+    cout << "Inizio copia dei risultati." << endl;
 
     // Copia overflowIndexes dalla GPU alla CPU
     // In modo da sapere quanti elementi ci sono per ogni riga.
-    cudaMemcpy(h_overflowIndexes, d_overflowIndexes, HASH_FUNCTION_SIZE * sizeof(int), cudaMemcpyDeviceToHost);
+    cudaMemcpy(hashes, d_hashes, NUMBER_OF_CUSTOMERS * sizeof(uint16_t), cudaMemcpyDeviceToHost);
 
-    // Copia dei risultati dalla GPU alla CPU
-    char *username_host, *bio_host;
+    for (i = 0; i < NUMBER_OF_CUSTOMERS; i++)
+    {
+        ret[hashes[i]].push_back(customers[i]);
+    }
     for (i = 0; i < HASH_FUNCTION_SIZE; i++)
     {
-        if(h_overflowIndexes[i] == 0){
-            continue;
-        }
-        strutturaCustomer *row;
-        cudaMemcpy(&row, d_res + i, sizeof(strutturaCustomer *), cudaMemcpyDeviceToHost); // copio indirizzo su row
-        cudaMemcpy(h_res[i], row, h_overflowIndexes[i] * sizeof(strutturaCustomer), cudaMemcpyDeviceToHost);
-
-        // Copy strings for each strutturaCustomer.
-        for (j = 0; j < h_overflowIndexes[i]; j++)
-        {
-            // Copia del puntatore del nome utente dalla GPU all'host
-            cudaMemcpy(&username_host, &(row[j].username), sizeof(char *), cudaMemcpyDeviceToHost);
-            // Allocazione della memoria per il nome utente sulla CPU
-            h_res[i][j].username = new char[MAX_USERNAME_LENGTH];
-
-            // Copia dei dati del nome utente dalla GPU alla CPU
-            cudaMemcpy(h_res[i][j].username, username_host, MAX_USERNAME_LENGTH * sizeof(char), cudaMemcpyDeviceToHost);
-
-            // Copia del puntatore della bio dalla GPU all'host
-            cudaMemcpy(&bio_host, &(row[j].bio), sizeof(char *), cudaMemcpyDeviceToHost);
-
-            // Allocazione della memoria per la bio sulla CPU
-            h_res[i][j].bio = new char[MAX_BIO_LENGTH];
-
-            // Copia dei dati della bio dalla GPU alla CPU
-            cudaMemcpy(h_res[i][j].bio, bio_host, MAX_BIO_LENGTH * sizeof(char), cudaMemcpyDeviceToHost);
-        }
+        count += ret[i].size();
     }
 
-    if (PRINT_CHECKS)
+    if (count == NUMBER_OF_CUSTOMERS)
     {
-        for (i = 0; i < HASH_FUNCTION_SIZE; i++)
-        {
-            if(h_overflowIndexes[i] == 0){
-                continue;
-            }
-            cout << i << ") ";
-            for (j = 0; j < h_overflowIndexes[i]; j++)
-            {
-                if (strlen(h_res[i][j].username) == 0)
-                {
-                    break;
-                }
-                cout << h_res[i][j].username << " => ";
-            }
-            cout << endl;
-        }
+        cout << count << " OK" << endl;
     }
-
-    if (CHECKS)
+    else
     {
-        for (i = 0; i < HASH_FUNCTION_SIZE; i++)
-        {
-            for (j = 0; j < h_overflowIndexes[i]; j++)
-            {
-                if (strlen(h_res[i][j].username) == 0)
-                {
-                    break;
-                }
-                count++;
-            }
-        }
-
-        if (count == NUMBER_OF_CUSTOMERS)
-        {
-            cout << count << " OK" << endl;
-        }
-        else
-        {
-            cout << count << " NOT OK" << endl;
-        }
+        cout << count << " NOT OK" << endl;
     }
 
-    cout << "Inizio deallocazione" << endl;
+    // Copia dei risultati dalla GPU alla CPU
+
+    cout << "Inizio deallocazione." << endl;
 
     // DEALLOCAZIONE
 
     cudaFree(d_customers); // Deallocazione della memoria sulla GPU per h_customers
-
-    // Deallocazione della memoria sulla GPU per h_res
-    for (i = 0; i < HASH_FUNCTION_SIZE; i++)
-    {
-        strutturaCustomer *row;
-        cudaMemcpy(&row, d_res + i, sizeof(strutturaCustomer *), cudaMemcpyDeviceToHost);
-        cudaFree(row);
-    }
-    cudaFree(d_res);
+    cudaFree(d_hashes);
 
     // Rilascio della memoria allocata
     for (i = 0; i < NUMBER_OF_CUSTOMERS; i++)
     {
-        delete[] h_customers[i].username;
-        delete[] h_customers[i].bio;
+        delete[] h_customers[i];
     }
     delete[] h_customers;
 
-    for (i = 0; i < HASH_FUNCTION_SIZE; i++)
-    {
-        for (j = 0; j < NUMBER_OF_CUSTOMERS; j++)
-        {
-            delete[] h_res[i][j].username;
-            delete[] h_res[i][j].bio;
-        }
-        delete[] h_res[i];
-    }
-    delete[] h_res;
-
-    delete[] h_overflowIndexes;
+    delete[] hashes;
 
     return 0;
 }
