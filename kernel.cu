@@ -9,10 +9,10 @@
 #include <string>
 
 // Data structure array configuration
-#define NUMBER_OF_CUSTOMERS 1000000u // How many struct there are in the vector.
+#define NUMBER_OF_CUSTOMERS 10000u // How many struct there are in the vector.
 
 // Parallelism configuration
-#define THREAD_NUMBER 1u // The number of threads you want to use.
+#define THREAD_NUMBER 10u // The number of threads you want to use.
 
 // Data structure configuration
 #define MAX_USERNAME_LENGTH 20u
@@ -76,24 +76,28 @@ __global__ void processCustomers(char **customers, uint64_t size, uint16_t *hash
 
 int main()
 {
-    cout << "Prova partenza del programma." << endl;
-
     uint64_t i = 0, count = 0;
-    string username = "";                                      // Temporary variable for the inizialization of the customers array.
-    vector<strutturaCustomer> customers;                       // The list of the customers.
-    vector<vector<strutturaCustomer>> ret(HASH_FUNCTION_SIZE); // The final hashing table.
-    
-    uint16_t *hashes = new uint16_t[NUMBER_OF_CUSTOMERS];
-    char **h_customers = new char* [NUMBER_OF_CUSTOMERS];
 
-    //variable for elapsed time
-    cudaEvent_t tic, toc;
-    float elapsed;
+    vector<strutturaCustomer> customers; // The list of the customers.
+    vector<vector<strutturaCustomer>> ret(HASH_FUNCTION_SIZE); // The final hashing table.
+
+    uint16_t *hashes = new uint16_t[NUMBER_OF_CUSTOMERS];
+    char **h_customers = new char *[NUMBER_OF_CUSTOMERS];
+
+    cudaEvent_t tic, toc; // Variables for compute the elapsed time.
+    float elapsed = 0.0f; // Variable for compute the elapsed time.
+
+    strutturaCustomer str;
+    string username = "";  // Temporary variable for the inizialization of the customers array.
+
+    cout << "Programma partito!" << endl;
+    cout << endl;
+    cout << endl;
 
     cudaEventCreate(&tic);
     cudaEventCreate(&toc);
 
-    strutturaCustomer str;
+  
     // Inizializzazione dei dati dei clienti (esempio)
     for (i = 0; i < NUMBER_OF_CUSTOMERS; ++i)
     {
@@ -108,13 +112,13 @@ int main()
         hashes[i] = 0;
     }
 
-    cout << "strutture inizializzate" << endl;
+    cout << "Inizializzazione delle strutture dati..." << endl;
     // Allocazione overflow indexes in GPU.
     uint16_t *d_hashes;
     cudaMalloc((void **)&d_hashes, NUMBER_OF_CUSTOMERS * sizeof(uint16_t)); // Allocazione della memoria sulla GPU per h_overflowIndexes
     //cudaMemcpy(d_hashes, hashes, NUMBER_OF_CUSTOMERS * sizeof(uint16_t), cudaMemcpyHostToDevice); // Copia dei dati dalla CPU alla GPU per h_overflowIndexes
 
-    cout << "hashes ok" << endl;
+    cout << "Vettore hashes generato e allocato in GPU!" << endl;
     // Allocazione customers in GPU.
     char **d_customers; // Creiamo la tabella di hash nella GPU
     cudaMalloc((void **)&d_customers, NUMBER_OF_CUSTOMERS * sizeof(strutturaCustomer *));
@@ -129,32 +133,38 @@ int main()
         // Aggiornamento del puntatore del nome utente nella struttura dati sul device
         cudaMemcpy(&(d_customers[i]), &d_username, sizeof(char *), cudaMemcpyHostToDevice);
     }
-    cout << "Inizio nucleo." << endl;
+    cout << "Vettore customers generato e allocato in GPU!" << endl;
+    cout << endl;
+    cout << endl;
+
+    cout << "Inizio del nucleo." << endl;
 
     cudaEventRecord(tic, 0);
     processCustomers<<<NUMBER_OF_CUSTOMERS / THREAD_NUMBER, THREAD_NUMBER>>>(d_customers, NUMBER_OF_CUSTOMERS, d_hashes);
     cudaEventRecord(toc, 0);
 
-    cout << "fine nucleo." << endl;
-    //synchronize the event
-    cudaEventSynchronize(toc);
+    cout << "Fine del nucleo." << endl;
+    cout << endl;
+    cout << endl;
 
+     
     cudaDeviceSynchronize(); // Sincronizza la GPU per assicurarsi che il kernel sia stato completato.
 
-    //compute the elapsed time
-    cudaEventElapsedTime(&elapsed, tic, toc);
+    cudaEventSynchronize(toc); // synchronize the event
+   
+    cudaEventElapsedTime(&elapsed, tic, toc); // Compute the elapsed time
 
+    cout << "Copia dei risultati..." << endl;
+    cudaMemcpy(hashes, d_hashes, NUMBER_OF_CUSTOMERS * sizeof(uint16_t), cudaMemcpyDeviceToHost); // Copia dei risultati dalla GPU alla CPU.
+    cout << "Risultati copiati in memoria!" << endl;
 
-    cout << "Inizio copia dei risultati." << endl;
-
-    // Copia overflowIndexes dalla GPU alla CPU
-    // In modo da sapere quanti elementi ci sono per ogni riga.
-    cudaMemcpy(hashes, d_hashes, NUMBER_OF_CUSTOMERS * sizeof(uint16_t), cudaMemcpyDeviceToHost);
-
+    // Costruzione della tabella di hashing.
+    cout << "Costruzione della tabella di hash..." << endl;
     for (i = 0; i < NUMBER_OF_CUSTOMERS; i++)
     {
         ret[hashes[i]].push_back(customers[i]);
     }
+    cout << "Tabella di Hash";
     for (i = 0; i < HASH_FUNCTION_SIZE; i++)
     {
         count += ret[i].size();
@@ -162,37 +172,38 @@ int main()
 
     if (count == NUMBER_OF_CUSTOMERS)
     {
-        cout << count << " OK" << endl;
+        cout << " costruita con successo!" << endl;
     }
     else
     {
-        cout << count << " NOT OK" << endl;
+        cout << " non costruita, errore!" << endl;
     }
 
-    // Copia dei risultati dalla GPU alla CPU
-
-    cout << "Inizio deallocazione." << endl;
+    cout << endl;
+    cout << endl;
+    cout << "Inizio deallocazione..." << endl;
 
     // DEALLOCAZIONE
 
-    cudaFree(d_customers); // Deallocazione della memoria sulla GPU per h_customers
-    cudaFree(d_hashes);
-    //free the two events tic and toc
+    cudaFree(d_customers); // Deallocazione della memoria sulla GPU per d_customers.
+    cudaFree(d_hashes);    // Deallocazione della memoria sulla GPU per d_hashes.
+    cout << "Deallocazione GPU completata!" << endl;
+
+    // Rilascio della memoria CPU allocata
+    delete[] h_customers;
+    delete[] hashes;
+    customers.clear(); // Polizia del vettore originale.
+
+    cout << "Deallocazione CPU completata!" << endl;
+
+    // Free the two events tic and toc
     cudaEventDestroy(tic);
     cudaEventDestroy(toc);
+    cout << "Deallocazione Eventi Timer completata!" << endl;
 
-    cout<< "tempo esecuzione: "<< elapsed<<endl;
-
-    // Rilascio della memoria allocata
-    for (i = 0; i < NUMBER_OF_CUSTOMERS; i++)
-    {
-        delete[] h_customers[i];
-    }
-    delete[] h_customers;
-
-    delete[] hashes;
-
-
+    cout << "-----------------------------------------" << endl;
+    cout << "Tempo di esecuzione del nucleo: " << elapsed << endl;
+    cout << "-----------------------------------------" << endl;
 
     return 0;
 }
