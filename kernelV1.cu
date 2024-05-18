@@ -115,6 +115,13 @@ int main()
     strutturaCustomer **h_res = new strutturaCustomer *[HASH_FUNCTION_SIZE];
     int *h_overflowIndexes = new int[HASH_FUNCTION_SIZE];
 
+    //variable for elapsed time
+    cudaEvent_t tic, toc;
+    float elapsed;
+
+    cudaEventCreate(&tic);
+    cudaEventCreate(&toc);
+
     // Allocazione della memoria per i puntatori dentro h_customers
     for (i = 0; i < NUMBER_OF_CUSTOMERS; i++)
     {
@@ -190,13 +197,22 @@ int main()
         cudaMalloc((void **)&row, NUMBER_OF_CUSTOMERS * sizeof(strutturaCustomer));
         cudaMemcpy(d_res + i, &row, sizeof(strutturaCustomer *), cudaMemcpyHostToDevice); // Copia dei dati dalla CPU alla GPU per h_customers
     }
-     cout << "Inizio nucleo" << endl;
+    cout << "Inizio nucleo" << endl;
+
+    cudaEventRecord(tic, 0); 
     processCustomers<<<NUMBER_OF_CUSTOMERS / THREAD_NUMBER, THREAD_NUMBER>>>(d_customers, NUMBER_OF_CUSTOMERS, d_res, d_overflowIndexes);
+    cudaEventRecord(toc, 0);
 
     cout << "fine nucleo" << endl;
+    //synchronize the event
+    cudaEventSynchronize(toc);
+
     // processCustomers<<<1, 1>>>(d_customers, NUMBER_OF_CUSTOMERS, d_res, d_overflowIndexes);
 
     cudaDeviceSynchronize(); // Sincronizza la GPU per assicurarsi che il kernel sia stato completato.
+
+    //compute the elapsed time
+    cudaEventElapsedTime(&elapsed, tic, toc);
 
     cout << "Inizio copia dei risultati" << endl;
 
@@ -295,6 +311,12 @@ int main()
         cudaFree(row);
     }
     cudaFree(d_res);
+
+    //free the two events tic and toc
+    cudaEventDestroy(tic);
+    cudaEventDestroy(toc);
+
+    cout<< "tempo esecuzione: "<< elapsed<<endl;
 
     // Rilascio della memoria allocata
     for (i = 0; i < NUMBER_OF_CUSTOMERS; i++)

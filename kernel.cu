@@ -1,4 +1,4 @@
-// CUDA libraries
+﻿// CUDA libraries
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 
@@ -86,6 +86,13 @@ int main()
     uint16_t *hashes = new uint16_t[NUMBER_OF_CUSTOMERS];
     char **h_customers = new char* [NUMBER_OF_CUSTOMERS];
 
+    //variable for elapsed time
+    cudaEvent_t tic, toc;
+    float elapsed;
+
+    cudaEventCreate(&tic);
+    cudaEventCreate(&toc);
+
     strutturaCustomer str;
     // Inizializzazione dei dati dei clienti (esempio)
     for (i = 0; i < NUMBER_OF_CUSTOMERS; ++i)
@@ -124,11 +131,19 @@ int main()
     }
     cout << "Inizio nucleo." << endl;
 
+    cudaEventRecord(tic, 0);
     processCustomers<<<NUMBER_OF_CUSTOMERS / THREAD_NUMBER, THREAD_NUMBER>>>(d_customers, NUMBER_OF_CUSTOMERS, d_hashes);
+    cudaEventRecord(toc, 0);
 
     cout << "fine nucleo." << endl;
+    //synchronize the event
+    cudaEventSynchronize(toc);
 
     cudaDeviceSynchronize(); // Sincronizza la GPU per assicurarsi che il kernel sia stato completato.
+
+    //compute the elapsed time
+    cudaEventElapsedTime(&elapsed, tic, toc);
+
 
     cout << "Inizio copia dei risultati." << endl;
 
@@ -162,6 +177,11 @@ int main()
 
     cudaFree(d_customers); // Deallocazione della memoria sulla GPU per h_customers
     cudaFree(d_hashes);
+    //free the two events tic and toc
+    cudaEventDestroy(tic);
+    cudaEventDestroy(toc);
+
+    cout<< "tempo esecuzione: "<< elapsed<<endl;
 
     // Rilascio della memoria allocata
     for (i = 0; i < NUMBER_OF_CUSTOMERS; i++)
@@ -171,6 +191,8 @@ int main()
     delete[] h_customers;
 
     delete[] hashes;
+
+
 
     return 0;
 }
