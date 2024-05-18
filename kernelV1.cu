@@ -7,6 +7,10 @@
 #include <stdio.h>
 #include <vector>
 #include <string>
+#include <chrono>
+
+#include "utilityFile.h"
+
 
 // Data structure array configuration
 #define NUMBER_OF_CUSTOMERS 1000u // How many struct there are in the vector.
@@ -118,6 +122,8 @@ int main()
     //variable for elapsed time
     cudaEvent_t tic, toc;
     float elapsed;
+    
+    decltype(std::chrono::steady_clock::now()) start_steady, end_steady; // The definition of the used timer variables.
 
     cudaEventCreate(&tic);
     cudaEventCreate(&toc);
@@ -155,6 +161,9 @@ int main()
     {
         h_overflowIndexes[i] = 0.0f;
     }
+
+
+    start_steady = std::chrono::steady_clock::now(); // Start measuring the execution time of the main process.
 
     // Allocazione overflow indexes in GPU.
     int *d_overflowIndexes;
@@ -273,6 +282,10 @@ int main()
         }
     }
 
+    end_steady = std::chrono::steady_clock::now(); // Measure the execution time of the main process when all the threads are ended.
+	std::chrono::duration<double> elapsed_seconds_high_res = end_steady - start_steady; // Compute the execution time.
+	double time = elapsed_seconds_high_res.count(); // Return the total execution time.
+
     if (CHECKS)
     {
         for (i = 0; i < HASH_FUNCTION_SIZE; i++)
@@ -286,6 +299,7 @@ int main()
                 count++;
             }
         }
+
 
         if (count == NUMBER_OF_CUSTOMERS)
         {
@@ -316,8 +330,6 @@ int main()
     cudaEventDestroy(tic);
     cudaEventDestroy(toc);
 
-    cout<< "tempo esecuzione: "<< elapsed<<endl;
-
     // Rilascio della memoria allocata
     for (i = 0; i < NUMBER_OF_CUSTOMERS; i++)
     {
@@ -338,6 +350,15 @@ int main()
     delete[] h_res;
 
     delete[] h_overflowIndexes;
+
+    cout<< "tempo esecuzione: "<< elapsed<<endl;
+    //elapsed must be float, but the function wants double
+    double elapsed1 = static_cast<double>(elapsed);
+    printToFile(elapsed1, "kernel.csv"); // Print the sample in the '.csv' file.
+    insertNewLine("kernel.csv");
+    cout << "Tempo di esecuzione totale : " << time << " s" << endl;
+    printToFile(time, "total.csv"); // Print the sample in the '.csv' file.
+    insertNewLine("total.csv");
 
     return 0;
 }

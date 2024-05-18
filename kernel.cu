@@ -9,7 +9,7 @@
 #include <string>
 #include <chrono> // Library for the steady clock.
 #include <thread>
-
+#include "utilityFile.h"
 // Data structure array configuration
 #define NUMBER_OF_CUSTOMERS 100u // How many struct there are in the vector.
 
@@ -205,7 +205,7 @@ int main()
 
     end_steady = std::chrono::steady_clock::now(); // Measure the execution time of the main process when all the threads are ended.
 	std::chrono::duration<double> elapsed_seconds_high_res = end_steady - start_steady; // Compute the execution time.
-	const double time = elapsed_seconds_high_res.count(); // Return the total execution time.
+	double time = elapsed_seconds_high_res.count(); // Return the total execution time.
 
     if (count == NUMBER_OF_CUSTOMERS)
     {
@@ -248,7 +248,13 @@ int main()
 
     cout << "-----------------------------------------" << endl;
     cout << "Tempo di esecuzione del nucleo: " << elapsed << " ms" << endl;
+    //elapsed must be float, but the function wants double
+    double elapsed1 = static_cast<double>(elapsed);
+    printToFile(elapsed1, "kernel.csv"); // Print the sample in the '.csv' file.
+    insertNewLine("kernel.csv");
     cout << "Tempo di esecuzione totale : " << time << " s" << endl;
+    printToFile(time, "total.csv"); // Print the sample in the '.csv' file.
+    insertNewLine("total.csv");
     cout << "-----------------------------------------" << endl;
 
     return 0;
