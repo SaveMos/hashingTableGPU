@@ -3,15 +3,15 @@
 #include "device_launch_parameters.h"
 
 // Used libraries
-#include <iostream> // To remove after testing.
 #include <stdio.h>
 #include <vector>
-#include <string>
 #include <chrono> // Library for the steady clock.
 #include <thread>
 
+#include "utilityFile.h"
+
 // Data structure array configuration
-#define NUMBER_OF_CUSTOMERS 100u // How many struct there are in the vector.
+#define NUMBER_OF_CUSTOMERS 10000u // How many struct there are in the vector.
 
 // Parallelism configuration
 #define THREAD_NUMBER_CPU 8u // The number of threads you want to use.
@@ -76,6 +76,7 @@ __global__ void processCustomers(char **customers, uint64_t size, uint16_t *hash
     }
 }
 
+// Macro per controllare eventuali errori nella GPU.
 #define CUDA_CHECK_RETURN(value) {                                          \
     cudaError_t _m_cudaStat = value;                                        \
     if (_m_cudaStat != cudaSuccess) {                                       \
@@ -84,7 +85,18 @@ __global__ void processCustomers(char **customers, uint64_t size, uint16_t *hash
         exit(1);                                                            \
     } }
 
-void threadCodeBuildTableV2(vector<strutturaCustomer>& customers, char** h_customers , uint8_t id) {
+// Macro per far funzionare le "<<<>>>"
+#ifndef __INTELLISENSE__
+#define KERNEL_ARGS2(grid, block)                 <<< grid, block >>>
+#define KERNEL_ARGS3(grid, block, sh_mem)         <<< grid, block, sh_mem >>>
+#define KERNEL_ARGS4(grid, block, sh_mem, stream) <<< grid, block, sh_mem, stream >>>
+#else
+#define KERNEL_ARGS2(grid, block)
+#define KERNEL_ARGS3(grid, block, sh_mem)
+#define KERNEL_ARGS4(grid, block, sh_mem, stream)
+#endif
+
+void threadCodeHashing(vector<strutturaCustomer>& customers, char** h_customers , uint8_t id) {
 	strutturaCustomer c = { "a" , 0 , "Insert his bio"}; // Temporary Customer structure, recycled some times in the code to increase the chance of cache hit.
 	string username; // Temporary variable, recycled some times in the code to increase the chance of cache hit
 	uint64_t target = id;
@@ -102,10 +114,19 @@ void threadCodeBuildTableV2(vector<strutturaCustomer>& customers, char** h_custo
 }
 
 
+void threadCodeBuildTable(vector<strutturaCustomer>& customers, uint16_t* hashes, vector<vector<strutturaCustomer>>& ret,  uint8_t id) {
+    uint64_t target = id;
+    const uint64_t size = customers.size();
+    while (target < size) {
+        ret[hashes[target]].push_back(customers[target]);
+        target += THREAD_NUMBER_CPU;
+    }
+}
+
+
 int main()
 {
     uint64_t i = 0, count = 0;
-
     vector<strutturaCustomer> customers (NUMBER_OF_CUSTOMERS); // The list of the customers.
     vector<vector<strutturaCustomer>> ret(HASH_FUNCTION_SIZE); // The final hashing table.
 
@@ -115,19 +136,19 @@ int main()
     cudaEvent_t tic, toc; // Variables for compute the elapsed time.
     float elapsed = 0.0f; // Variable for compute the elapsed time.
 
+    vector<thread> threadMixer(THREAD_NUMBER_CPU); // Vector of the threads descriptors.
+    uint8_t ithread; // Iterator variable.
+
     decltype(std::chrono::steady_clock::now()) start_steady, end_steady; // The definition of the used timer variables.
 
     (cudaEventCreate(&tic));
     (cudaEventCreate(&toc));
 
     // Inizializzazione dei dati dei clienti (esempio)
-   	vector<thread> threadMixer(THREAD_NUMBER_CPU); // Vector of the threads descriptors.
-	uint8_t ithread; // Iterator variable.
-	uint64_t customersSize = customers.size();
-
+  
 	for (ithread = 0; ithread < THREAD_NUMBER_CPU - 1; ithread++) { // For each started thread...
 		thread thread_i(
-			threadCodeBuildTableV2, // The thread function.
+            threadCodeHashing, // The thread function.
 			ref(customers), // The customers array.
             ref(h_customers),
 			ithread // The thread's id.
@@ -136,7 +157,7 @@ int main()
 	}
 
 	// The main thread too contribute to the generation of the data stucture.
-	threadCodeBuildTableV2(
+    threadCodeHashing(
 		ref(customers), // The thread function.
         ref(h_customers),
 		THREAD_NUMBER_CPU - 1// The thread's id.
@@ -146,18 +167,19 @@ int main()
 	for (ithread = 0; ithread < THREAD_NUMBER_CPU - 1; ithread++) {
 		threadMixer[ithread].join(); // Join the i� thread.
 	}
+    threadMixer.clear();
 
 	start_steady = std::chrono::steady_clock::now(); // Start measuring the execution time of the main process.
     
     //cout << "Inizializzazione delle strutture dati..." << endl;
     // Allocazione overflow indexes in GPU.
-    uint16_t *d_hashes;
+    uint16_t *d_hashes = 0;
     (cudaMalloc((void **)&d_hashes, NUMBER_OF_CUSTOMERS * sizeof(uint16_t))); // Allocazione della memoria sulla GPU per h_overflowIndexes
 
     //cout << "Vettore hashes generato e allocato in GPU!" << endl;
     // Allocazione customers in GPU.
     char **d_customers; // Creiamo la tabella di hash nella GPU
-    uint16_t size_str;
+    uint8_t size_str;
     char *d_username;
     (cudaMalloc((void **)&d_customers, NUMBER_OF_CUSTOMERS * sizeof(char *)));
     for (i = 0; i < NUMBER_OF_CUSTOMERS; i++)
@@ -175,7 +197,9 @@ int main()
     cout << "Inizio del nucleo." << endl;
     */
     (cudaEventRecord(tic, 0));
-    processCustomers<<<NUMBER_OF_CUSTOMERS / THREAD_NUMBER, THREAD_NUMBER>>>(d_customers, NUMBER_OF_CUSTOMERS, d_hashes);
+    //processCustomers << <NUMBER_OF_CUSTOMERS / THREAD_NUMBER, THREAD_NUMBER >> > (d_customers, NUMBER_OF_CUSTOMERS, d_hashes);
+    processCustomers KERNEL_ARGS2(NUMBER_OF_CUSTOMERS / THREAD_NUMBER, THREAD_NUMBER) (d_customers, NUMBER_OF_CUSTOMERS, d_hashes);
+
     (cudaEventRecord(toc, 0));
 
     (cudaDeviceSynchronize()); // Sincronizza la GPU per assicurarsi che il kernel sia stato completato.
@@ -195,34 +219,56 @@ int main()
     //cout << "Risultati copiati in memoria!" << endl;
 
     // Costruzione della tabella di hashing.
-    //cout << "Costruzione della tabella di hash..." << endl;
-    for (i = 0; i < NUMBER_OF_CUSTOMERS; i++)
-    {
-        ret[hashes[i]].push_back(customers[i]);
+    for (ithread = 0; ithread < THREAD_NUMBER_CPU - 1; ithread++) { // For each started thread...
+        thread thread_i(
+            threadCodeBuildTable, // The thread function.
+            ref(customers), // The customers array.
+            ref(hashes),
+            ref(ret),
+            ithread // The thread's id.
+        );
+        threadMixer.at(ithread) = move(thread_i); // Add the thread descriptor to the thread descriptor vector.
     }
-    //cout << "Tabella di Hash";
-    for (i = 0; i < HASH_FUNCTION_SIZE; i++)
-    {
-        count += ret[i].size();
+
+    // The main thread too contribute to the generation of the data stucture.
+    threadCodeBuildTable(
+        ref(customers), // The thread function.
+        ref(hashes),
+        ref(ret),
+        THREAD_NUMBER_CPU - 1 // The thread's id.
+    );
+
+    // Now the father wait for all the started threads to finish their execution.
+    for (ithread = 0; ithread < THREAD_NUMBER_CPU - 1; ithread++) {
+        threadMixer[ithread].join(); // Join the i� thread.
     }
+    threadMixer.clear();
 
     end_steady = std::chrono::steady_clock::now(); // Measure the execution time of the main process when all the threads are ended.
 	std::chrono::duration<double> elapsed_seconds_high_res = end_steady - start_steady; // Compute the execution time.
 	const double time = elapsed_seconds_high_res.count(); // Return the total execution time.
-    /*
-    if (count == NUMBER_OF_CUSTOMERS)
-    {
-        cout << " costruita con successo!" << endl;
+    
+    if (PRINT_CHECKS) {
+        //cout << "Tabella di Hash";
+        for (i = 0; i < HASH_FUNCTION_SIZE; i++)
+        {
+            count += ret[i].size();
+        }
+
+        if (count == NUMBER_OF_CUSTOMERS)
+        {
+            cout << "Tabella di hash costruita con successo!" << endl;
+        }
+        else
+        {
+            cout << "Tabella di hash non costruita, errore!" << endl;
+        }
+
+        cout << endl;
+        cout << endl;
     }
-    else
-    {
-        cout << " non costruita, errore!" << endl;
-    }
-   
-    cout << endl;
-    cout << endl;
-    cout << "Inizio deallocazione..." << endl;
-    */
+    //cout << "Inizio deallocazione..." << endl;
+    
     // DEALLOCAZIONE
     for (i = 0; i < NUMBER_OF_CUSTOMERS; ++i) {
         char* d_username;
@@ -242,17 +288,28 @@ int main()
     delete[] hashes;
     customers.clear(); // Polizia del vettore originale.
 
-    &&cout << "Deallocazione CPU completata!" << endl;
+    //cout << "Deallocazione CPU completata!" << endl;
 
     // Free the two events tic and toc
     (cudaEventDestroy(tic));
     (cudaEventDestroy(toc));
-    cout << "Deallocazione Eventi Timer completata!" << endl;
+    //cout << "Deallocazione Eventi Timer completata!" << endl;     
+    
+    if (PRINT_CHECKS) {
+        cout << "-----------------------------------------" << endl;
+        cout << "Tempo di esecuzione del nucleo: " << elapsed << " ms" << endl;
+        cout << "Tempo di esecuzione totale : " << time << " s" << endl;
+        cout << "-----------------------------------------" << endl;
+    }
+    
 
-    cout << "-----------------------------------------" << endl;
-    cout << "Tempo di esecuzione del nucleo: " << elapsed << " ms" << endl;
-    cout << "Tempo di esecuzione totale : " << time << " s" << endl;
-    cout << "-----------------------------------------" << endl;
+    if (SAMPLE_FILE_PRINT) {
+        //elapsed must be float, but the function wants double
+        printToFile(static_cast<double>(elapsed), "kernel.csv"); // Print the sample in the '.csv' file.
+        insertNewLine("kernel.csv");
+        printToFile(time, "total.csv"); // Print the sample in the '.csv' file.
+        insertNewLine("total.csv");
+    }
 
     return 0;
 }

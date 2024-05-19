@@ -1,24 +1,12 @@
-#include <chrono> // Library for the high-resultution clock.
-
 // Data stream libraries.
 #include <fstream> // Library for writing the samples in the '.csv' file.
 #include <iostream>
-// Cuncurrency libraries.
-#include <thread>
-#include <mutex>
-
-// Data Structures libraries.
-#include <deque>
-#include <array>
-#include <vector>
 #include <string>
 
 // USED NAMESPACES
 using namespace std;
 
-void printToFile(double& sample, string fileType) {
-     
-
+void printToFile(double sample, string fileType) {
 	std::ofstream file(fileType, std::ios_base::app); // Open the samples '.csv' file.
 	string d_str = to_string(sample); // Convert to string the execution time sample.
 	size_t pos = d_str.find('.'); // Locate the '.' in the sample string.

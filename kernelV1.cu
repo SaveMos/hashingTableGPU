@@ -3,14 +3,10 @@
 #include "device_launch_parameters.h"
 
 // Used libraries
-#include <iostream> // To remove after testing.
 #include <stdio.h>
-#include <vector>
-#include <string>
 #include <chrono>
 
 #include "utilityFile.h"
-
 
 // Data structure array configuration
 #define NUMBER_OF_CUSTOMERS 1000u // How many struct there are in the vector.
@@ -42,7 +38,17 @@ struct strutturaCustomer
     char *bio;           // Not unique and expected big field.
 };
 
-#define MAX_SEMAPHORE_VALUE 1
+
+// Macro per far funzionare le "<<<>>>"
+#ifndef __INTELLISENSE__
+#define KERNEL_ARGS2(grid, block)                 <<< grid, block >>>
+#define KERNEL_ARGS3(grid, block, sh_mem)         <<< grid, block, sh_mem >>>
+#define KERNEL_ARGS4(grid, block, sh_mem, stream) <<< grid, block, sh_mem, stream >>>
+#else
+#define KERNEL_ARGS2(grid, block)
+#define KERNEL_ARGS3(grid, block, sh_mem)
+#define KERNEL_ARGS4(grid, block, sh_mem, stream)
+#endif
 
 __device__ int mutexVector[HASH_FUNCTION_SIZE]; // Array di semafori
 
@@ -81,7 +87,7 @@ __device__ void bitwise_hash_16(const char *str, size_t size, uint16_t &hash)
 
 __global__ void processCustomers(strutturaCustomer *customers, uint64_t size, strutturaCustomer **res, int *overflowIndexes)
 {
-    int idx = threadIdx.x + blockIdx.x * blockDim.x, index;
+    int idx = threadIdx.x + blockIdx.x * blockDim.x;
     size_t len = 0;
     uint16_t hash;
     // Ogni thread elabora un subset di elementi nell'array customers
@@ -159,7 +165,7 @@ int main()
     // Inizializzazione degli indici di overflow.
     for (i = 0; i < HASH_FUNCTION_SIZE; i++)
     {
-        h_overflowIndexes[i] = 0.0f;
+        h_overflowIndexes[i] = 0;
     }
 
 
@@ -209,7 +215,7 @@ int main()
     cout << "Inizio nucleo" << endl;
 
     cudaEventRecord(tic, 0); 
-    processCustomers<<<NUMBER_OF_CUSTOMERS / THREAD_NUMBER, THREAD_NUMBER>>>(d_customers, NUMBER_OF_CUSTOMERS, d_res, d_overflowIndexes);
+    processCustomers KERNEL_ARGS2(NUMBER_OF_CUSTOMERS / THREAD_NUMBER, THREAD_NUMBER) (d_customers, NUMBER_OF_CUSTOMERS, d_res, d_overflowIndexes);
     cudaEventRecord(toc, 0);
 
     cout << "fine nucleo" << endl;
