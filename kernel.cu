@@ -149,12 +149,12 @@ int main()
 
 	start_steady = std::chrono::steady_clock::now(); // Start measuring the execution time of the main process.
     
-    cout << "Inizializzazione delle strutture dati..." << endl;
+    //cout << "Inizializzazione delle strutture dati..." << endl;
     // Allocazione overflow indexes in GPU.
     uint16_t *d_hashes;
     (cudaMalloc((void **)&d_hashes, NUMBER_OF_CUSTOMERS * sizeof(uint16_t))); // Allocazione della memoria sulla GPU per h_overflowIndexes
 
-    cout << "Vettore hashes generato e allocato in GPU!" << endl;
+    //cout << "Vettore hashes generato e allocato in GPU!" << endl;
     // Allocazione customers in GPU.
     char **d_customers; // Creiamo la tabella di hash nella GPU
     uint16_t size_str;
@@ -167,12 +167,13 @@ int main()
         (cudaMemcpy(d_username, h_customers[i], size_str * sizeof(char), cudaMemcpyHostToDevice)); // Aggiornamento del puntatore del nome utente nella struttura dati sul device
         (cudaMemcpy(&(d_customers[i]), &d_username, sizeof(char*), cudaMemcpyHostToDevice));
     }
+    /*
     cout << "Vettore customers generato e allocato in GPU!" << endl;
     cout << endl;
     cout << endl;
 
     cout << "Inizio del nucleo." << endl;
-
+    */
     (cudaEventRecord(tic, 0));
     processCustomers<<<NUMBER_OF_CUSTOMERS / THREAD_NUMBER, THREAD_NUMBER>>>(d_customers, NUMBER_OF_CUSTOMERS, d_hashes);
     (cudaEventRecord(toc, 0));
@@ -183,21 +184,23 @@ int main()
 
     (cudaEventElapsedTime(&elapsed, tic, toc)); // Compute the elapsed time
 
+    /*
     cout << "Fine del nucleo." << endl;
     cout << endl;
     cout << endl;
 
     cout << "Copia dei risultati..." << endl;
+    */
     (cudaMemcpy(hashes, d_hashes, NUMBER_OF_CUSTOMERS * sizeof(uint16_t), cudaMemcpyDeviceToHost)); // Copia dei risultati dalla GPU alla CPU.
-    cout << "Risultati copiati in memoria!" << endl;
+    //cout << "Risultati copiati in memoria!" << endl;
 
     // Costruzione della tabella di hashing.
-    cout << "Costruzione della tabella di hash..." << endl;
+    //cout << "Costruzione della tabella di hash..." << endl;
     for (i = 0; i < NUMBER_OF_CUSTOMERS; i++)
     {
         ret[hashes[i]].push_back(customers[i]);
     }
-    cout << "Tabella di Hash";
+    //cout << "Tabella di Hash";
     for (i = 0; i < HASH_FUNCTION_SIZE; i++)
     {
         count += ret[i].size();
@@ -206,7 +209,7 @@ int main()
     end_steady = std::chrono::steady_clock::now(); // Measure the execution time of the main process when all the threads are ended.
 	std::chrono::duration<double> elapsed_seconds_high_res = end_steady - start_steady; // Compute the execution time.
 	const double time = elapsed_seconds_high_res.count(); // Return the total execution time.
-
+    /*
     if (count == NUMBER_OF_CUSTOMERS)
     {
         cout << " costruita con successo!" << endl;
@@ -215,11 +218,11 @@ int main()
     {
         cout << " non costruita, errore!" << endl;
     }
-
+   
     cout << endl;
     cout << endl;
     cout << "Inizio deallocazione..." << endl;
-
+    */
     // DEALLOCAZIONE
     for (i = 0; i < NUMBER_OF_CUSTOMERS; ++i) {
         char* d_username;
@@ -229,7 +232,7 @@ int main()
 
     (cudaFree(d_customers)); // Deallocazione della memoria sulla GPU per d_customers.
     (cudaFree(d_hashes));    // Deallocazione della memoria sulla GPU per d_hashes.
-    cout << "Deallocazione GPU completata!" << endl;
+    //cout << "Deallocazione GPU completata!" << endl;
 
     // Rilascio della memoria CPU allocata
     for (i = 0; i < NUMBER_OF_CUSTOMERS; ++i) {
@@ -239,7 +242,7 @@ int main()
     delete[] hashes;
     customers.clear(); // Polizia del vettore originale.
 
-    cout << "Deallocazione CPU completata!" << endl;
+    &&cout << "Deallocazione CPU completata!" << endl;
 
     // Free the two events tic and toc
     (cudaEventDestroy(tic));
