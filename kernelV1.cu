@@ -8,27 +8,19 @@
 
 #include "utilityFile.h"
 
-// Data structure array configuration
-#define NUMBER_OF_CUSTOMERS 1000u // How many struct there are in the vector.
-
-// Parallelism configuration
-#define THREAD_NUMBER 10u // The number of threads you want to use.
-
-// Data structure configuration
-#define MAX_USERNAME_LENGTH 20u
-#define MAX_BIO_LENGTH 20u
-
-// Hash configuration
-#define HASH_FUNCTION_SIZE 1027u // Size of the output space of the hash function.
-#define HASH_SHIFT 6u
-
-// Other configuration
-#define SAMPLE_FILE_PRINT 1
-#define CHECKS 1
-#define PRINT_CHECKS 0
 
 // Used namespaces
 using namespace std;
+
+
+// Data structure array configuration
+#define NUMBER_OF_CUSTOMERS 100u // How many struct there are in the vector.
+
+#define THREAD_NUMBER 10u
+
+// Hash configuration
+#define HASH_FUNCTION_SIZE 100u // Size of the output space of the hash function.
+
 
 // The target data structure.
 struct strutturaCustomer
@@ -97,7 +89,7 @@ __global__ void processCustomers(strutturaCustomer *customers, uint64_t size, st
         bitwise_hash_16(customers[idx].username, len, hash);
 
         lock(&mutexVector[hash]);
-        res[hash][static_cast<int>(overflowIndexes[hash])] = customers[idx];
+        res[hash][overflowIndexes[hash]] = customers[idx];
         overflowIndexes[hash]++;
         // printf("Username: %s | lenght: %u | Hash: %i | OI: %f\n" , customers[idx].username , len , hash, overflowIndexes[hash]);
         unlock(&mutexVector[hash]);

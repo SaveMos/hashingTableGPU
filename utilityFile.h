@@ -3,6 +3,21 @@
 #include <iostream>
 #include <string>
 
+
+
+// Parallelism configuration
+#define THREAD_NUMBER_CPU 8u // The number of threads you want to use.
+
+#define HASH_SHIFT 6u
+
+// Other configuration
+#define SAMPLE_FILE_PRINT 1
+#define CHECKS 1
+#define PRINT_CHECKS 1
+
+#define MAX_USERNAME_LENGTH 20
+#define MAX_BIO_LENGTH 20
+
 // USED NAMESPACES
 using namespace std;
 
