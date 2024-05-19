@@ -354,11 +354,11 @@ int main()
     cout<< "tempo esecuzione: "<< elapsed<<endl;
     //elapsed must be float, but the function wants double
     double elapsed1 = static_cast<double>(elapsed);
-    printToFile(elapsed1, "kernel.csv"); // Print the sample in the '.csv' file.
-    insertNewLine("kernel.csv");
+    printToFile(elapsed1, "kernel1.csv"); // Print the sample in the '.csv' file.
+    insertNewLine("kernel1.csv");
     cout << "Tempo di esecuzione totale : " << time << " s" << endl;
-    printToFile(time, "total.csv"); // Print the sample in the '.csv' file.
-    insertNewLine("total.csv");
+    printToFile(time, "total1.csv"); // Print the sample in the '.csv' file.
+    insertNewLine("total1.csv");
 
     return 0;
 }
