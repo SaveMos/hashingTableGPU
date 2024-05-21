@@ -4,17 +4,18 @@
 #include <string>
 
 
+// Parallelism configuration.
+#define THREAD_NUMBER_CPU 8u // The number of threads you want to use in the CPU.
 
-// Parallelism configuration
-#define THREAD_NUMBER_CPU 8u // The number of threads you want to use.
-
+// Hash function configuration.
 #define HASH_SHIFT 6u
 
-// Other configuration
+// Other configuration.
 #define SAMPLE_FILE_PRINT 1
 #define CHECKS 1
 #define PRINT_CHECKS 1
 
+// Data structure configuration.
 #define MAX_USERNAME_LENGTH 20
 #define MAX_BIO_LENGTH 20
 
