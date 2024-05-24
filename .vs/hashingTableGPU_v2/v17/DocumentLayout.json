@@ -18,24 +18,11 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 2,
+          "SelectedChildIndex": 1,
           "Children": [
             {
               "$type": "Bookmark",
               "Name": "ST:0:0:{cce594b6-0c39-4442-ba28-10c64ac7e89f}"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 1,
-              "Title": "utilityFile.h",
-              "DocumentMoniker": "C:\\Users\\Saverio\\source\\repos\\SaveMos\\hashingTableGPU_v2\\utilityFile.h",
-              "RelativeDocumentMoniker": "utilityFile.h",
-              "ToolTip": "C:\\Users\\Saverio\\source\\repos\\SaveMos\\hashingTableGPU_v2\\utilityFile.h",
-              "RelativeToolTip": "utilityFile.h",
-              "ViewState": "AQIAAAAAAAAAAAAAAAAAAAsAAAAAAAAA",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
-              "WhenOpened": "2024-05-24T08:43:55.143Z",
-              "EditorCaption": ""
             },
             {
               "$type": "Document",
@@ -45,9 +32,22 @@
               "RelativeDocumentMoniker": "kernel.cu",
               "ToolTip": "C:\\Users\\Saverio\\source\\repos\\SaveMos\\hashingTableGPU_v2\\kernel.cu",
               "RelativeToolTip": "kernel.cu",
-              "ViewState": "AQIAALYAAAAAAAAAAAAAAPMAAAADAAAA",
+              "ViewState": "AQIAACAAAAAAAAAAAAAAAEkAAAAzAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2024-05-21T14:02:27.026Z",
+              "WhenOpened": "2024-05-24T10:31:47.99Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "utilityFile.h",
+              "DocumentMoniker": "C:\\Users\\Saverio\\source\\repos\\SaveMos\\hashingTableGPU_v2\\utilityFile.h",
+              "RelativeDocumentMoniker": "utilityFile.h",
+              "ToolTip": "C:\\Users\\Saverio\\source\\repos\\SaveMos\\hashingTableGPU_v2\\utilityFile.h",
+              "RelativeToolTip": "utilityFile.h",
+              "ViewState": "AQIAAAYAAAAAAAAAAAAAAAoAAAAAAAAA",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
+              "WhenOpened": "2024-05-24T08:43:55.143Z",
               "EditorCaption": ""
             }
           ]

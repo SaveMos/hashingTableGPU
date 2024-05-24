@@ -16,16 +16,16 @@
 using namespace std;
 
 // Data structure array configuration
-#define NUMBER_OF_CUSTOMERS 1000000u // How many struct there are in the vector.
+#define NUMBER_OF_CUSTOMERS 16384u // How many struct there are in the vector.
 
-#define THREAD_NUMBER_GPU 256u
+#define THREAD_NUMBER_GPU 512u
 // Hash configuration
 #define HASH_FUNCTION_SIZE 1027u // Size of the output space of the hash function.
 
 // Other configuration.
-#define SAMPLE_FILE_PRINT 1
+#define SAMPLE_FILE_PRINT 0
 #define CHECKS 0
-#define PRINT_CHECKS 1
+#define PRINT_CHECKS 0
 
 struct sharedMutexMixer {
     array<mutex, HASH_FUNCTION_SIZE> mutexes;
@@ -75,6 +75,8 @@ __global__ void processCustomers(char **customers, uint64_t size, uint16_t *hash
         hashes[idx] = hash;
         idx += blockDim.x * gridDim.x;
     }
+
+    __syncthreads();
 }
 
 // Macro per controllare eventuali errori nella GPU.
@@ -143,16 +145,16 @@ int main()
     uint16_t *hashes = new uint16_t[NUMBER_OF_CUSTOMERS]; // Hashes vector.
     char **h_customers = new char *[NUMBER_OF_CUSTOMERS]; // Usernames's vector.
 
-    cudaEvent_t tic, toc; // Variables for compute the elapsed time.
+    //cudaEvent_t tic, toc; // Variables for compute the elapsed time.
     float elapsed = 0.0f; // Variable for compute the elapsed time.
 
     vector<thread> threadMixer (THREAD_NUMBER_CPU - 1); // Vector of the threads descriptors.
     uint8_t ithread = 0; // 8-bit iterator variable.
 
-    decltype(std::chrono::steady_clock::now()) start_steady, end_steady; // The definition of the used timer variables.
+    //decltype(std::chrono::steady_clock::now()) start_steady, end_steady; // The definition of the used timer variables.
 
-    (cudaEventCreate(&tic));
-    (cudaEventCreate(&toc));
+    //(cudaEventCreate(&tic));
+    //(cudaEventCreate(&toc));
 
     for (ithread = 0; ithread < THREAD_NUMBER_CPU - 1; ithread++) { // For each started thread...
         thread thread_i(
@@ -176,7 +178,7 @@ int main()
         threadMixer[ithread].join(); // Join the i� thread.
     }
 
-    start_steady = std::chrono::steady_clock::now(); // Start measuring the execution time of the main process.
+   // start_steady = std::chrono::steady_clock::now(); // Start measuring the execution time of the main process.
 
     //cout << "Inizializzazione delle strutture dati..." << endl;
     // Allocazione overflow indexes in GPU.
@@ -198,17 +200,17 @@ int main()
     }
 
 
-    (cudaEventRecord(tic, 0));
+    //(cudaEventRecord(tic, 0));
     //processCustomers<<<NUMBER_OF_CUSTOMERS / THREAD_NUMBER_GPU, THREAD_NUMBER_GPU>>>(d_customers, NUMBER_OF_CUSTOMERS, d_hashes);
     processCustomers KERNEL_ARGS2(NUMBER_OF_CUSTOMERS / THREAD_NUMBER_GPU, THREAD_NUMBER_GPU) (d_customers, NUMBER_OF_CUSTOMERS, d_hashes);
 
-    (cudaEventRecord(toc, 0));
+   // (cudaEventRecord(toc, 0));
 
     (cudaDeviceSynchronize()); // Sincronizza la GPU per assicurarsi che il kernel sia stato completato.
 
-    (cudaEventSynchronize(toc)); // Synchronize the event.
+    //(cudaEventSynchronize(toc)); // Synchronize the event.
 
-    (cudaEventElapsedTime(&elapsed, tic, toc)); // Compute the elapsed time.
+  //  (cudaEventElapsedTime(&elapsed, tic, toc)); // Compute the elapsed time.
 
 
     (cudaMemcpy(hashes, d_hashes, NUMBER_OF_CUSTOMERS * sizeof(uint16_t), cudaMemcpyDeviceToHost)); // Copia dei risultati dalla GPU alla CPU.
@@ -240,10 +242,11 @@ int main()
        threadMixer[ithread].join(); // Join the i� thread.
    }
    
-    end_steady = std::chrono::steady_clock::now();                                      // Measure the execution time of the main process when all the threads are ended.
-    std::chrono::duration<double> elapsed_seconds_high_res = end_steady - start_steady; // Compute the execution time.
-    const double time = elapsed_seconds_high_res.count();                               // Return the total execution time.
+   // end_steady = std::chrono::steady_clock::now();                                      // Measure the execution time of the main process when all the threads are ended.
+   // std::chrono::duration<double> elapsed_seconds_high_res = end_steady - start_steady; // Compute the execution time.
+   // const double time = elapsed_seconds_high_res.count();                               // Return the total execution time.
 
+       /*
     for (i = 0; i < HASH_FUNCTION_SIZE; i++)
     {
         count += ret[i].size();
@@ -257,9 +260,10 @@ int main()
     {
         cout << "Tabella di hash non costruita, errore!" << endl;
     }
+    */
+    //cout << endl;
+    //cout << endl;
 
-    cout << endl;
-    cout << endl;
 
     //cout << "Inizio deallocazione..." << endl;
 
@@ -283,8 +287,8 @@ int main()
 
    
     // Free the two events tic and toc
-    (cudaEventDestroy(tic));
-    (cudaEventDestroy(toc));
+   // (cudaEventDestroy(tic));
+   // (cudaEventDestroy(toc));
     // cout << "Deallocazione Eventi Timer completata!" << endl;
 
     if (PRINT_CHECKS)
@@ -298,9 +302,9 @@ int main()
     if (SAMPLE_FILE_PRINT)
     {
         // elapsed must be float, but the function wants double
-        printToFile(static_cast<double>(elapsed), "kernel.csv"); // Print the sample in the '.csv' file.
+       // printToFile(static_cast<double>(elapsed), "kernel.csv"); // Print the sample in the '.csv' file.
         insertNewLine("kernel.csv");
-        printToFile(time, "total.csv"); // Print the sample in the '.csv' file.
+     //   printToFile(time, "total.csv"); // Print the sample in the '.csv' file.
         insertNewLine("total.csv");
     }
 

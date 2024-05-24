@@ -14,21 +14,15 @@ using namespace std;
 
 
 // Data structure array configuration
-#define NUMBER_OF_CUSTOMERS 100u // How many struct there are in the vector.
+#define NUMBER_OF_CUSTOMERS 1000u // How many struct there are in the vector.
 
-#define THREAD_NUMBER 10u
+#define THREAD_NUMBER 32u
 
 // Hash configuration
-#define HASH_FUNCTION_SIZE 100u // Size of the output space of the hash function.
+#define HASH_FUNCTION_SIZE 1027u // Size of the output space of the hash function.
 
-
-// The target data structure.
-struct strutturaCustomer
-{
-    char *username;      // Identifier field (must be unique for each customer).
-    uint64_t number = 0; // Not unique and expected little field.
-    char *bio;           // Not unique and expected big field.
-};
+#define CHECKS false
+#define PRINT_CHECKS false
 
 
 // Macro per far funzionare le "<<<>>>"
@@ -42,19 +36,30 @@ struct strutturaCustomer
 #define KERNEL_ARGS4(grid, block, sh_mem, stream)
 #endif
 
-__device__ int mutexVector[HASH_FUNCTION_SIZE]; // Array di semafori
 
-__device__ void lock(int *semaphore)
+// The target data structure.
+struct strutturaCustomer
 {
-    while (atomicCAS(semaphore, 0, 1) != 0);
-    __threadfence();  
+    char *username;      // Identifier field (must be unique for each customer).
+    uint64_t number = 0; // Not unique and expected little field.
+    char *bio;           // Not unique and expected big field.
+};
+
+typedef struct {
+    int flag;
+} Mutex;
+
+__device__ void mutex_lock(Mutex* mutex) {
+    while (atomicCAS(&mutex->flag, 0, 1) != 0) {
+        // Attendi finché il mutex non è disponibile
+    }
 }
 
-__device__ void unlock(int *semaphore)
-{
-   __threadfence();  
-    atomicExch(semaphore, 0);
+__device__ void mutex_unlock(Mutex* mutex) {
+    atomicExch(&mutex->flag, 0);
 }
+
+
 
 // GPU function to compute the lenght of a string.
 __device__ void gpu_strlen(const char *str, size_t &len)
@@ -77,7 +82,7 @@ __device__ void bitwise_hash_16(const char *str, size_t size, uint16_t &hash)
     hash %= HASH_FUNCTION_SIZE; // Il digest deve essere all'interno dell'intervallo di output della funzione hash.
 }
 
-__global__ void processCustomers(strutturaCustomer *customers, uint64_t size, strutturaCustomer **res, int *overflowIndexes)
+__global__ void processCustomers(strutturaCustomer *customers, uint64_t size, strutturaCustomer **res, int *overflowIndexes, Mutex* mutexes)
 {
     int idx = threadIdx.x + blockIdx.x * blockDim.x;
     size_t len = 0;
@@ -88,11 +93,11 @@ __global__ void processCustomers(strutturaCustomer *customers, uint64_t size, st
         gpu_strlen(customers[idx].username, len);
         bitwise_hash_16(customers[idx].username, len, hash);
 
-        lock(&mutexVector[hash]);
+        mutex_lock(&mutexes[hash]);
         res[hash][overflowIndexes[hash]] = customers[idx];
         overflowIndexes[hash]++;
-        // printf("Username: %s | lenght: %u | Hash: %i | OI: %f\n" , customers[idx].username , len , hash, overflowIndexes[hash]);
-        unlock(&mutexVector[hash]);
+        mutex_unlock(&mutexes[hash]);
+
 
         idx += blockDim.x * gridDim.x;
     }
@@ -100,16 +105,9 @@ __global__ void processCustomers(strutturaCustomer *customers, uint64_t size, st
     __syncthreads();
 }
 
-void cudaMemoryInfo()
-{
-    size_t freeMem, totalMem;
-    cudaMemGetInfo(&freeMem, &totalMem);
-    std::cout << "Memoria libera sulla GPU: " << freeMem / (1024 * 1024) << "/" << totalMem / (1024 * 1024) << std::endl;
-}
-
 int main()
 {
-    cout << "Prova partenza del programma." << endl;
+    //cout << "Prova partenza del programma." << endl;
 
     uint64_t i = 0, j = 0, count = 0;
     string username = "";                                                        // Temporary variable for the inizialization of the customers array.
@@ -118,13 +116,13 @@ int main()
     int *h_overflowIndexes = new int[HASH_FUNCTION_SIZE];
 
     //variable for elapsed time
-    cudaEvent_t tic, toc;
-    float elapsed;
+   // cudaEvent_t tic, toc;
+   // float elapsed;
     
-    decltype(std::chrono::steady_clock::now()) start_steady, end_steady; // The definition of the used timer variables.
+   // decltype(std::chrono::steady_clock::now()) start_steady, end_steady; // The definition of the used timer variables.
 
-    cudaEventCreate(&tic);
-    cudaEventCreate(&toc);
+   // cudaEventCreate(&tic);
+   // cudaEventCreate(&toc);
 
     // Allocazione della memoria per i puntatori dentro h_customers
     for (i = 0; i < NUMBER_OF_CUSTOMERS; i++)
@@ -161,17 +159,28 @@ int main()
     }
 
 
-    start_steady = std::chrono::steady_clock::now(); // Start measuring the execution time of the main process.
+    //start_steady = std::chrono::steady_clock::now(); // Start measuring the execution time of the main process.
 
     // Allocazione overflow indexes in GPU.
     int *d_overflowIndexes;
-    cudaMalloc((void **)&d_overflowIndexes, HASH_FUNCTION_SIZE * sizeof(int));                                  // Allocazione della memoria sulla GPU per h_overflowIndexes
+    cudaMalloc((void **)&d_overflowIndexes, HASH_FUNCTION_SIZE * sizeof(int));  // Allocazione della memoria sulla GPU per h_overflowIndexes
     cudaMemcpy(d_overflowIndexes, h_overflowIndexes, HASH_FUNCTION_SIZE * sizeof(int), cudaMemcpyHostToDevice); // Copia dei dati dalla CPU alla GPU per h_overflowIndexes
 
     // Allocazione customers in GPU.
     strutturaCustomer *d_customers;
-    cudaMalloc((void **)&d_customers, NUMBER_OF_CUSTOMERS * sizeof(strutturaCustomer));                            // Allocazione della memoria sulla GPU per h_customers
+    cudaMalloc((void **)&d_customers, NUMBER_OF_CUSTOMERS * sizeof(strutturaCustomer));  // Allocazione della memoria sulla GPU per h_customers
     cudaMemcpy(d_customers, h_customers, NUMBER_OF_CUSTOMERS * sizeof(strutturaCustomer), cudaMemcpyHostToDevice); // Copia dei dati dalla CPU alla GPU per h_customers
+
+    // Esempio di come allocare e inizializzare i mutex
+    Mutex* d_mutexes;
+    cudaMalloc(&d_mutexes, HASH_FUNCTION_SIZE * sizeof(Mutex));
+    Mutex h_mutexes[HASH_FUNCTION_SIZE];
+    for (int i = 0; i < HASH_FUNCTION_SIZE; ++i) {
+        h_mutexes[i].flag = 0;
+    }
+    cudaMemcpy(d_mutexes, h_mutexes, HASH_FUNCTION_SIZE * sizeof(Mutex), cudaMemcpyHostToDevice);
+
+
 
     // Allocazione delle stringhe all'interno delle strutture dati
     // Allocazione delle stringhe all'interno delle strutture dati
@@ -204,24 +213,23 @@ int main()
         cudaMalloc((void **)&row, NUMBER_OF_CUSTOMERS * sizeof(strutturaCustomer));
         cudaMemcpy(d_res + i, &row, sizeof(strutturaCustomer *), cudaMemcpyHostToDevice); // Copia dei dati dalla CPU alla GPU per h_customers
     }
-    cout << "Inizio nucleo" << endl;
+   // cout << "Inizio nucleo" << endl;
 
-    cudaEventRecord(tic, 0); 
-    processCustomers KERNEL_ARGS2(NUMBER_OF_CUSTOMERS / THREAD_NUMBER, THREAD_NUMBER) (d_customers, NUMBER_OF_CUSTOMERS, d_res, d_overflowIndexes);
-    cudaEventRecord(toc, 0);
+   // cudaEventRecord(tic, 0); 
+    processCustomers KERNEL_ARGS2(NUMBER_OF_CUSTOMERS / THREAD_NUMBER, THREAD_NUMBER) (d_customers, NUMBER_OF_CUSTOMERS, d_res, d_overflowIndexes, d_mutexes);
+   // cudaEventRecord(toc, 0);
 
-    cout << "fine nucleo" << endl;
+   // cout << "fine nucleo" << endl;
     //synchronize the event
-    cudaEventSynchronize(toc);
+  //  cudaEventSynchronize(toc);
 
-    // processCustomers<<<1, 1>>>(d_customers, NUMBER_OF_CUSTOMERS, d_res, d_overflowIndexes);
-
+  //  cout << "Attesa dispositivo..." << endl;
     cudaDeviceSynchronize(); // Sincronizza la GPU per assicurarsi che il kernel sia stato completato.
 
     //compute the elapsed time
-    cudaEventElapsedTime(&elapsed, tic, toc);
+  //  cudaEventElapsedTime(&elapsed, tic, toc);
 
-    cout << "Inizio copia dei risultati" << endl;
+  //  cout << "Inizio copia dei risultati" << endl;
 
     // Copia overflowIndexes dalla GPU alla CPU
     // In modo da sapere quanti elementi ci sono per ogni riga.
@@ -260,6 +268,7 @@ int main()
         }
     }
 
+    /*
     if (PRINT_CHECKS)
     {
         for (i = 0; i < HASH_FUNCTION_SIZE; i++)
@@ -279,10 +288,11 @@ int main()
             cout << endl;
         }
     }
+    */
 
-    end_steady = std::chrono::steady_clock::now(); // Measure the execution time of the main process when all the threads are ended.
-	std::chrono::duration<double> elapsed_seconds_high_res = end_steady - start_steady; // Compute the execution time.
-	double time = elapsed_seconds_high_res.count(); // Return the total execution time.
+    //end_steady = std::chrono::steady_clock::now(); // Measure the execution time of the main process when all the threads are ended.
+	//std::chrono::duration<double> elapsed_seconds_high_res = end_steady - start_steady; // Compute the execution time.
+	//double time = elapsed_seconds_high_res.count(); // Return the total execution time.
 
     if (CHECKS)
     {
@@ -309,7 +319,7 @@ int main()
         }
     }
 
-    cout << "Inizio deallocazione" << endl;
+  //  cout << "Inizio deallocazione" << endl;
 
     // DEALLOCAZIONE
 
@@ -325,8 +335,8 @@ int main()
     cudaFree(d_res);
 
     //free the two events tic and toc
-    cudaEventDestroy(tic);
-    cudaEventDestroy(toc);
+   // cudaEventDestroy(tic);
+  // cudaEventDestroy(toc);
 
     // Rilascio della memoria allocata
     for (i = 0; i < NUMBER_OF_CUSTOMERS; i++)
@@ -348,7 +358,8 @@ int main()
     delete[] h_res;
 
     delete[] h_overflowIndexes;
-
+    
+    /*
     cout<< "tempo esecuzione: "<< elapsed<<endl;
     //elapsed must be float, but the function wants double
     double elapsed1 = static_cast<double>(elapsed);
@@ -357,6 +368,7 @@ int main()
     cout << "Tempo di esecuzione totale : " << time << " s" << endl;
     printToFile(time, "total1.csv"); // Print the sample in the '.csv' file.
     insertNewLine("total1.csv");
+    */
 
     return 0;
 }
