@@ -9,7 +9,6 @@
 // Hash function configuration.
 #define HASH_SHIFT 6u
 
-
 // Data structure configuration.
 #define MAX_USERNAME_LENGTH 20
 #define MAX_BIO_LENGTH 20

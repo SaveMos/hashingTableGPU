@@ -16,7 +16,8 @@ using namespace std;
 // Data structure array configuration
 #define NUMBER_OF_CUSTOMERS 1000u // How many struct there are in the vector.
 
-#define THREAD_NUMBER 32u
+#define THREAD_NUMBER_GPU 64u // Number of thread per block.
+#define BLOCKS_NUMBER 300u // Number of blocks.
 
 // Hash configuration
 #define HASH_FUNCTION_SIZE 1027u // Size of the output space of the hash function.
@@ -216,7 +217,7 @@ int main()
    // cout << "Inizio nucleo" << endl;
 
    // cudaEventRecord(tic, 0); 
-    processCustomers KERNEL_ARGS2(NUMBER_OF_CUSTOMERS / THREAD_NUMBER, THREAD_NUMBER) (d_customers, NUMBER_OF_CUSTOMERS, d_res, d_overflowIndexes, d_mutexes);
+    processCustomers KERNEL_ARGS2(BLOCKS_NUMBER, THREAD_NUMBER_GPU) (d_customers, NUMBER_OF_CUSTOMERS, d_res, d_overflowIndexes, d_mutexes);
    // cudaEventRecord(toc, 0);
 
    // cout << "fine nucleo" << endl;

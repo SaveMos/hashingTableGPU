@@ -3,8 +3,16 @@
   "WorkspaceRootPath": "C:\\Users\\Saverio\\source\\repos\\SaveMos\\hashingTableGPU_v2\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{97B7BDBE-FBCF-439B-92B4-68895B40C38E}|hashingTableGPU_v2.vcxproj|C:\\Users\\Saverio\\source\\repos\\SaveMos\\hashingTableGPU_v2\\kernel.cu||{8B382828-6202-11D1-8870-0000F87579D2}",
-      "RelativeMoniker": "D:0:0:{97B7BDBE-FBCF-439B-92B4-68895B40C38E}|hashingTableGPU_v2.vcxproj|solutionrelative:kernel.cu||{8B382828-6202-11D1-8870-0000F87579D2}"
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\Saverio\\source\\repos\\SaveMos\\hashingTableGPU_v2\\total.csv||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:total.csv||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{97B7BDBE-FBCF-439B-92B4-68895B40C38E}|hashingTableGPU_v2.vcxproj|C:\\Users\\Saverio\\source\\repos\\SaveMos\\hashingTableGPU_v2\\kernelV1.cu||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{97B7BDBE-FBCF-439B-92B4-68895B40C38E}|hashingTableGPU_v2.vcxproj|solutionrelative:kernelV1.cu||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|C:\\Users\\Saverio\\source\\repos\\SaveMos\\hashingTableGPU_v2\\kernel.cu||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{A2FE74E1-B743-11D0-AE1A-00A0C90FFFC3}|\u003CMiscFiles\u003E|solutionrelative:kernel.cu||{8B382828-6202-11D1-8870-0000F87579D2}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{97B7BDBE-FBCF-439B-92B4-68895B40C38E}|hashingTableGPU_v2.vcxproj|C:\\Users\\Saverio\\source\\repos\\SaveMos\\hashingTableGPU_v2\\utilityFile.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
@@ -18,36 +26,59 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 1,
+          "SelectedChildIndex": 3,
           "Children": [
             {
-              "$type": "Bookmark",
-              "Name": "ST:0:0:{cce594b6-0c39-4442-ba28-10c64ac7e89f}"
-            },
-            {
               "$type": "Document",
-              "DocumentIndex": 0,
-              "Title": "kernel.cu",
-              "DocumentMoniker": "C:\\Users\\Saverio\\source\\repos\\SaveMos\\hashingTableGPU_v2\\kernel.cu",
-              "RelativeDocumentMoniker": "kernel.cu",
-              "ToolTip": "C:\\Users\\Saverio\\source\\repos\\SaveMos\\hashingTableGPU_v2\\kernel.cu",
-              "RelativeToolTip": "kernel.cu",
-              "ViewState": "AQIAACAAAAAAAAAAAAAAAEkAAAAzAAAA",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
-              "WhenOpened": "2024-05-24T10:31:47.99Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 3,
               "Title": "utilityFile.h",
               "DocumentMoniker": "C:\\Users\\Saverio\\source\\repos\\SaveMos\\hashingTableGPU_v2\\utilityFile.h",
               "RelativeDocumentMoniker": "utilityFile.h",
               "ToolTip": "C:\\Users\\Saverio\\source\\repos\\SaveMos\\hashingTableGPU_v2\\utilityFile.h",
               "RelativeToolTip": "utilityFile.h",
-              "ViewState": "AQIAAAYAAAAAAAAAAAAAAAoAAAAAAAAA",
+              "ViewState": "AQIAAAAAAAAAAAAAAAAAAAkAAAAVAAAA",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
               "WhenOpened": "2024-05-24T08:43:55.143Z",
+              "IsPinned": true,
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "kernel.cu",
+              "DocumentMoniker": "C:\\Users\\Saverio\\source\\repos\\SaveMos\\hashingTableGPU_v2\\kernel.cu",
+              "RelativeDocumentMoniker": "kernel.cu",
+              "ToolTip": "C:\\Users\\Saverio\\source\\repos\\SaveMos\\hashingTableGPU_v2\\kernel.cu",
+              "RelativeToolTip": "kernel.cu",
+              "ViewState": "AQIAAAwAAAAAAAAAAAAAABkAAAAvAAAA",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2024-05-24T15:44:30.585Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "kernelV1.cu",
+              "DocumentMoniker": "C:\\Users\\Saverio\\source\\repos\\SaveMos\\hashingTableGPU_v2\\kernelV1.cu",
+              "RelativeDocumentMoniker": "kernelV1.cu",
+              "ToolTip": "C:\\Users\\Saverio\\source\\repos\\SaveMos\\hashingTableGPU_v2\\kernelV1.cu",
+              "RelativeToolTip": "kernelV1.cu",
+              "ViewState": "AQIAABIAAAAAAAAAAAAAAD0AAAAAAAAA",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001001|",
+              "WhenOpened": "2024-05-24T15:42:51.551Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "total.csv",
+              "DocumentMoniker": "C:\\Users\\Saverio\\source\\repos\\SaveMos\\hashingTableGPU_v2\\total.csv",
+              "RelativeDocumentMoniker": "total.csv",
+              "ToolTip": "C:\\Users\\Saverio\\source\\repos\\SaveMos\\hashingTableGPU_v2\\total.csv",
+              "RelativeToolTip": "total.csv",
+              "ViewState": "AQIAAKsAAAAAAAAAAAAAALoAAAAAAAAA",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.002120|",
+              "WhenOpened": "2024-05-24T14:16:15.054Z",
               "EditorCaption": ""
             }
           ]
