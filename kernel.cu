@@ -16,14 +16,14 @@
 using namespace std;
 
 // Data structure array configuration
-#define NUMBER_OF_CUSTOMERS 100000u // How many struct there are in the dataset.
+#define NUMBER_OF_CUSTOMERS 75000u // How many struct there are in the dataset.
 
 // Hash function configuration
 #define HASH_FUNCTION_SIZE 1027u // Size of the output space of the hash function.
 
 // GPU Multithreading configuration
-#define THREAD_NUMBER_GPU 1024u // Number of thread per block.
-#define BLOCKS_NUMBER 1500u // Number of blocks.
+#define THREAD_NUMBER_GPU 32u // Number of thread per block.
+#define BLOCKS_NUMBER 1024u // Number of blocks.
 
 // Other configuration.
 #define SAMPLE_FILE_PRINT true // Set 'true' if you want to print the execution time in a '.csv' file.
@@ -45,12 +45,12 @@ sharedMutexMixer mutexVector; // Global mutex vector, used to grant syncronizati
 
 // GPU function for compute the 16-bit hash of a string.
 __device__ void bitwise_hash_16(char* str, uint16_t &hash) {
-    hash = HASH_FUNCTION_SIZE;
+    hash = HASH_FUNCTION_SIZE; // Initial value of the hash.
     uint16_t c;
     while ((c = *str++)) {
         hash = ((hash << HASH_SHIFT) ^ hash) + c;
     }
-    hash %= HASH_FUNCTION_SIZE;
+    hash %= HASH_FUNCTION_SIZE; // The hash must be limited by the hash function output size.
 }
 
 __global__ void processCustomers(char **customers, uint64_t size, uint16_t *hashes)
@@ -158,7 +158,7 @@ int main()
     // The main thread too contribute to the generation of the data stucture.
     threadCodeInitialize(
         ref(customers), // The customers array.
-        ref(h_customers),
+        ref(h_customers), // The usernames array.
         THREAD_NUMBER_CPU - 1 // The thread's id.
     );
 
