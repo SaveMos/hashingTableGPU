@@ -80,7 +80,7 @@
     <ClInclude Include="utilityFile.h" />
   </ItemGroup>
   <ItemGroup>
-    <CudaCompile Include="kernelV1.cu" />
+    <CudaCompile Include="kernel.cu" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

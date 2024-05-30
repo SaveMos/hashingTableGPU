@@ -12,10 +12,10 @@
 using namespace std;
 
 // Data structure array configuration
-#define NUMBER_OF_CUSTOMERS 75000u // How many struct there are in the vector.
+#define NUMBER_OF_CUSTOMERS 10000u // How many struct there are in the vector.
 
 #define THREAD_NUMBER_GPU 32u // Number of thread per block.
-#define BLOCKS_NUMBER 1024u // Number of blocks.
+#define BLOCKS_NUMBER 2000u // Number of blocks.
 
 // Hash function configuration
 #define HASH_FUNCTION_SIZE 1027u // Size of the output space of the hash function.
@@ -92,8 +92,14 @@ int main()
     strutturaCustomer *h_customers = new strutturaCustomer[NUMBER_OF_CUSTOMERS]; // Array delle strutture dati sulla CPU
     strutturaCustomer **h_res = new strutturaCustomer *[HASH_FUNCTION_SIZE]; // The hash table in the host.
     unsigned int *h_overflowIndexes = new unsigned int [HASH_FUNCTION_SIZE]; // The overflow indexes on the host.
+    
+    cudaEvent_t tic, toc; // Variables for compute the execution time of the CUDA kernel.
+    float elapsed = 0.0f; // Variable for compute the execution time.
 
-    decltype(std::chrono::steady_clock::now()) start_steady, end_steady; // The definition of the used timer variables.
+    //decltype(std::chrono::steady_clock::now()) start_steady, end_steady; // The definition of the used timer variables.
+    
+    (cudaEventCreate(&tic));
+    (cudaEventCreate(&toc));
 
     // Allocazione della memoria per i puntatori dentro h_customers
     for (i = 0; i < NUMBER_OF_CUSTOMERS; i++)
@@ -130,7 +136,7 @@ int main()
         h_overflowIndexes[i] = 0; // All'inizio ogni riga ha 0 elementi.
     }
 
-    start_steady = std::chrono::steady_clock::now(); // Start measuring the execution time of the main process.
+    //start_steady = std::chrono::steady_clock::now(); // Start measuring the execution time of the main process.
 
     // Allocazione overflow indexes in GPU.
     unsigned int *d_overflowIndexes;
@@ -168,11 +174,16 @@ int main()
         cudaMalloc((void **)&row, NUMBER_OF_CUSTOMERS * sizeof(strutturaCustomer)); // Allocazione della memoria per il vvettore dei customers nella GPU.
         cudaMemcpy(d_res + i, &row, sizeof(strutturaCustomer *), cudaMemcpyHostToDevice); // Copia dei dati dalla CPU alla GPU per h_customers.
     }
-  
+    (cudaEventRecord(tic, 0));
     processCustomers KERNEL_ARGS2(BLOCKS_NUMBER, THREAD_NUMBER_GPU) (d_customers, NUMBER_OF_CUSTOMERS, d_res, d_overflowIndexes);
 
-    cudaDeviceSynchronize(); // Sincronizza la GPU per assicurarsi che il kernel sia stato completato.
+     (cudaEventRecord(toc, 0));
 
+    (cudaDeviceSynchronize()); // Sincronizza la GPU per assicurarsi che il kernel sia stato completato.
+
+    (cudaEventSynchronize(toc)); // Synchronize the event.
+
+    (cudaEventElapsedTime(&elapsed, tic, toc)); // Compute the elapsed 
     cudaMemcpy(h_overflowIndexes, d_overflowIndexes, HASH_FUNCTION_SIZE * sizeof(unsigned int), cudaMemcpyDeviceToHost);  // Copia overflowIndexes dalla GPU alla CPU.
 
     // Copia della tabella di hash (res) dalla GPU alla CPU.
@@ -201,9 +212,9 @@ int main()
         }
     }
 
-    end_steady = std::chrono::steady_clock::now(); // Measure the execution time of the main process when all the threads are ended.
-	std::chrono::duration<double> elapsed_seconds_high_res = end_steady - start_steady; // Compute the execution time.
-	double time = elapsed_seconds_high_res.count(); // Return the total execution time.
+    //end_steady = std::chrono::steady_clock::now(); // Measure the execution time of the main process when all the threads are ended.
+	//std::chrono::duration<double> elapsed_seconds_high_res = end_steady - start_steady; // Compute the execution time.
+	//double time = elapsed_seconds_high_res.count(); // Return the total execution time.
 
     if (PRINT_CHECKS)
     {
@@ -261,9 +272,14 @@ int main()
     delete[] h_res; // Dealloco ila tabella di hash nella CPU.
     delete[] h_overflowIndexes; // Dealloco il vettore degli indici nella CPU.
     
-    if(SAMPLE_FILE_PRINT){
-        printToFile(time, "total1.csv"); // Print the sample in the '.csv' file.
-        insertNewLine("total1.csv");
+    if (SAMPLE_FILE_PRINT)
+    {
+        // elapsed must be float, but the function wants double
+        printToFile(static_cast<double>(elapsed), "kernelV1.csv"); // Print the sample in the '.csv' file.
+        insertNewLine("kernelV1.csv");
+        //printToFile(time, "total.csv"); // Print the sample in the '.csv' file.
+        //insertNewLine("total.csv");
     }
+
     return 0;
 }

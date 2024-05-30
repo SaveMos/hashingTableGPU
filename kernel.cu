@@ -16,14 +16,14 @@
 using namespace std;
 
 // Data structure array configuration
-#define NUMBER_OF_CUSTOMERS 75000u // How many struct there are in the dataset.
+#define NUMBER_OF_CUSTOMERS 10000u // How many struct there are in the dataset.
 
 // Hash function configuration
 #define HASH_FUNCTION_SIZE 1027u // Size of the output space of the hash function.
 
 // GPU Multithreading configuration
-#define THREAD_NUMBER_GPU 32u // Number of thread per block.
-#define BLOCKS_NUMBER 1024u // Number of blocks.
+#define THREAD_NUMBER_GPU 64u // Number of thread per block.
+#define BLOCKS_NUMBER 2000u // Number of blocks.
 
 // Other configuration.
 #define SAMPLE_FILE_PRINT true // Set 'true' if you want to print the execution time in a '.csv' file.
@@ -43,28 +43,28 @@ struct strutturaCustomer
 
 sharedMutexMixer mutexVector; // Global mutex vector, used to grant syncronization during an access to a row of the hash table.
 
+__constant__ uint64_t d_size;
+
 // GPU function for compute the 16-bit hash of a string.
-__device__ void bitwise_hash_16(char* str, uint16_t &hash) {
-    hash = HASH_FUNCTION_SIZE; // Initial value of the hash.
-    uint16_t c;
+__device__ uint16_t bitwise_hash_16(char* str) {
+    uint16_t hash = HASH_FUNCTION_SIZE; // Initial value of the hash.
+    uint16_t c = 0;
     while ((c = *str++)) {
-        hash = ((hash << HASH_SHIFT) ^ hash) + c;
+        hash = ((hash << 4) ^ hash) + c;
     }
     hash %= HASH_FUNCTION_SIZE; // The hash must be limited by the hash function output size.
+    return hash;
 }
 
-__global__ void processCustomers(char **customers, uint64_t size, uint16_t *hashes)
+__global__ void processCustomers(char **customers,  uint16_t *hashes)
 {
     int idx = threadIdx.x + blockIdx.x * blockDim.x;
-    uint16_t hash;
     // Ogni thread elabora un subset di elementi nell'array customers
-    while (idx < size)
+    while (idx < d_size)
     {
-        bitwise_hash_16(customers[idx], hash);
-        hashes[idx] = hash;
+        hashes[idx] = bitwise_hash_16(customers[idx]);
         idx += blockDim.x * gridDim.x;
     }
-
     __syncthreads();
 }
 
@@ -134,16 +134,16 @@ int main()
     uint16_t *hashes = new uint16_t[NUMBER_OF_CUSTOMERS]; // Hashes vector.
     char **h_customers = new char *[NUMBER_OF_CUSTOMERS]; // Usernames's vector.
 
-    //cudaEvent_t tic, toc; // Variables for compute the execution time of the CUDA kernel.
+    cudaEvent_t tic, toc; // Variables for compute the execution time of the CUDA kernel.
     float elapsed = 0.0f; // Variable for compute the execution time.
 
     vector<thread> threadMixer (THREAD_NUMBER_CPU - 1); // Vector of the threads descriptors.
     uint8_t ithread = 0; // 8-bit iterator variable.
 
-    decltype(std::chrono::steady_clock::now()) start_steady, end_steady; // The definition of the used timer variables.
+   // decltype(std::chrono::steady_clock::now()) start_steady, end_steady; // The definition of the used timer variables.
 
-    //(cudaEventCreate(&tic));
-    //(cudaEventCreate(&toc));
+    (cudaEventCreate(&tic));
+    (cudaEventCreate(&toc));
 
     for (ithread = 0; ithread < THREAD_NUMBER_CPU - 1; ithread++) { // For each started thread...
         thread thread_i(
@@ -167,7 +167,10 @@ int main()
         threadMixer[ithread].join(); // Join the ith thread.
     }
 
-    start_steady = std::chrono::steady_clock::now(); // Start measuring the execution time of the main process.
+   // start_steady = std::chrono::steady_clock::now(); // Start measuring the execution time of the main process.
+    const uint64_t numCustomers = NUMBER_OF_CUSTOMERS;
+    cudaMemcpyToSymbol(d_size, &numCustomers, sizeof(uint64_t));
+
 
     // Allocazione overflow indexes in GPU.
     uint16_t *d_hashes = 0;
@@ -187,20 +190,27 @@ int main()
     }
 
 
-    //(cudaEventRecord(tic, 0));
-    processCustomers KERNEL_ARGS2(BLOCKS_NUMBER, THREAD_NUMBER_GPU) (d_customers, NUMBER_OF_CUSTOMERS, d_hashes);
+    (cudaEventRecord(tic, 0));
+    processCustomers KERNEL_ARGS2(BLOCKS_NUMBER, THREAD_NUMBER_GPU) (d_customers, d_hashes);
     //processCustomers KERNEL_ARGS2((NUMBER_OF_CUSTOMERS/THREAD_NUMBER_GPU) + 1, THREAD_NUMBER_GPU) (d_customers, NUMBER_OF_CUSTOMERS, d_hashes);
-    //(cudaEventRecord(toc, 0));
+    (cudaEventRecord(toc, 0));
 
     (cudaDeviceSynchronize()); // Sincronizza la GPU per assicurarsi che il kernel sia stato completato.
 
-    //(cudaEventSynchronize(toc)); // Synchronize the event.
+    (cudaEventSynchronize(toc)); // Synchronize the event.
 
-    //(cudaEventElapsedTime(&elapsed, tic, toc)); // Compute the elapsed time.
+    (cudaEventElapsedTime(&elapsed, tic, toc)); // Compute the elapsed time.
 
     (cudaMemcpy(hashes, d_hashes, NUMBER_OF_CUSTOMERS * sizeof(uint16_t), cudaMemcpyDeviceToHost)); // Copia dei risultati dalla GPU alla CPU.
+    
+    /*
+    cout << "Risultati copiati in memoria!" << endl;
+
+    for(i = 0 ; i < NUMBER_OF_CUSTOMERS ; i++){
+        cout << hashes[i] << endl;
+    }
+    */
  
-    //cout << "Risultati copiati in memoria!" << endl;
 
    for (ithread = 0; ithread < THREAD_NUMBER_CPU - 1; ithread++) { // For each started thread...
        thread thread_i(
@@ -226,9 +236,9 @@ int main()
        threadMixer[ithread].join(); // Join the ith thread.
    }
    
-    end_steady = std::chrono::steady_clock::now();                                      // Measure the execution time of the main process when all the threads are ended.
-    std::chrono::duration<double> elapsed_seconds_high_res = end_steady - start_steady; // Compute the execution time.
-    const double time = elapsed_seconds_high_res.count();                               // Return the total execution time.
+   // end_steady = std::chrono::steady_clock::now();                                      // Measure the execution time of the main process when all the threads are ended.
+   // std::chrono::duration<double> elapsed_seconds_high_res = end_steady - start_steady; // Compute the execution time.
+    //const double time = elapsed_seconds_high_res.count();                               // Return the total execution time.
 
     if(PRINT_CHECKS){
         for (i = 0; i < HASH_FUNCTION_SIZE; i++)
@@ -267,8 +277,8 @@ int main()
     delete[] hashes;
 
     // Free the two events tic and toc
-    //(cudaEventDestroy(tic));
-    //(cudaEventDestroy(toc));
+    (cudaEventDestroy(tic));
+    (cudaEventDestroy(toc));
     
     if (PRINT_CHECKS)
     {
@@ -283,8 +293,8 @@ int main()
         // elapsed must be float, but the function wants double
         printToFile(static_cast<double>(elapsed), "kernel.csv"); // Print the sample in the '.csv' file.
         insertNewLine("kernel.csv");
-        printToFile(time, "total.csv"); // Print the sample in the '.csv' file.
-        insertNewLine("total.csv");
+        //printToFile(time, "total.csv"); // Print the sample in the '.csv' file.
+        //insertNewLine("total.csv");
     }
 
     return 0;
